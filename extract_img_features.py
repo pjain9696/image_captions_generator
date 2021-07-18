@@ -95,7 +95,7 @@ def map_func(filename, cap):
     images_features_dir = config['images_features_dir']
     img_features_path = images_features_dir + filename.decode('utf-8').split('/')[-1] + '.npy'
 
-    print('img_features_path = ', img_features_path)
+    # print('img_features_path = ', img_features_path)
     # filename = filename.decode('utf-8')
     # path_parts = filename.split('/')
     # path_parts[2] = 'img_features'
