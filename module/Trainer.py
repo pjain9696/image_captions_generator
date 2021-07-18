@@ -1,6 +1,7 @@
 # from re import A
+from numpy.core.numeric import Infinity
 from extract_img_features import load_image
-import time
+import time, math
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -24,7 +25,7 @@ class Trainer:
         self.loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
 
         self.checkpoint = tf.train.Checkpoint(encoder=self.encoder, decoder=self.decoder, optimizer=self.optimizer)
-        self.checkpoint_manager = tf.train.CheckpointManager(self.checkpoint, self.config['checkpoint_dir'], max_to_keep=5)
+        self.checkpoint_manager = tf.train.CheckpointManager(self.checkpoint, self.config['checkpoint_dir'], max_to_keep=2)
 
     def loss_function(self, real, pred):
         mask = tf.math.logical_not(tf.math.equal(real, 0))
@@ -68,10 +69,21 @@ class Trainer:
 
         return loss, total_loss
 
-    def initiate_training(self, train_dataset):
+    def initiate_training(self, train_dataset, load_from_checkpoint=True):
+
+        print('latest_checkpoint = ', self.checkpoint_manager.latest_checkpoint)    
+        if load_from_checkpoint and self.checkpoint_manager.latest_checkpoint:
+            start_epoch = int(self.checkpoint_manager.latest_checkpoint.split('-')[-1])
+            self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
+        else:
+            start_epoch = 0
+
+        print('start_epoch =', start_epoch)
+
         EPOCHS = self.config['EPOCHS']
         loss_plot = []
-        for epoch in range(EPOCHS):
+        min_loss = math.inf
+        for epoch in range(start_epoch, EPOCHS):
             start = time.time()
             total_loss = 0
 
@@ -90,24 +102,25 @@ class Trainer:
             loss_plot.append(avg_loss_this_epoch)
 
             #save the epoch with the lowest loss
-            if (epoch+1) % 5 == 0:
-                print('saving a checkpoint, epoch = ', epoch+1)
+            if avg_loss_this_epoch < min_loss:
+                print(f'saving a checkpoint, epoch = {epoch+1}, loss = {avg_loss_this_epoch}')
                 self.checkpoint_manager.save()
+                min_loss = avg_loss_this_epoch
             
-            print(f'Epoch {epoch+1} Average Loss {avg_loss_this_epoch:.6f}, time taken {time.time()-start:.2f}sec \n')
+            print(f'Epoch {epoch+1} Average Loss {avg_loss_this_epoch:.6f}, time taken {time.time()-start:.2f}sec\n')
         
         #plot the losses
-        plt.plot(loss_plot)
-        plt.xlabel('Epochs')
-        plt.ylabel('Loss')
-        plt.title('Loss Plot')
-        plt.grid()
-        plt.show()
+        # plt.plot(loss_plot)
+        # plt.xlabel('Epochs')
+        # plt.ylabel('Loss')
+        # plt.title('Loss Plot')
+        # plt.grid()
+        # plt.show()
         return
 
     def evaluate(self, image):
         attention_plot = np.zeros((self.max_len, 64))
-        hidden = self.decoder.reset_state(batch_szie=1)
+        hidden = self.decoder.reset_state(batch_size=1)
 
         img_tensor_val = load_image_features_on_the_fly(image)
         features = self.encoder(img_tensor_val)
@@ -118,7 +131,7 @@ class Trainer:
             predictions, hidden, attention_weights = self.decoder(dec_input, features, hidden)
             attention_plot[i] = tf.reshape(attention_weights, (-1,)).numpy()
 
-            print('predictions = ', predictions)
+            # print(f'i = {i}, predictions shape = {predictions.shape}\n')
             predicted_id = tf.random.categorical(predictions, 1)[0][0].numpy()
             result.append(self.tokenizer.index_word[predicted_id])
 

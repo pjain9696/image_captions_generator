@@ -108,6 +108,8 @@ def load_image_features_on_the_fly(image):
     pretrained_model = get_inceptionv3()
     temp_input = tf.expand_dims(load_image(image)[0], 0)
     
+    print('shape of temp_input = ', temp_input.shape)
     img_tensor_val = pretrained_model(temp_input)
-    img_tensor_val = tf.reshape(img_tensor_val, (img_tensor_val[0], -1, img_tensor_val.shape[3]))
+    print('shape of img_tensor_val = ', img_tensor_val.shape)
+    img_tensor_val = tf.reshape(img_tensor_val, (img_tensor_val.shape[0], -1, img_tensor_val.shape[3]))
     return img_tensor_val

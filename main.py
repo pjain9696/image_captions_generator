@@ -23,7 +23,7 @@ if __name__ == '__main__':
    
     #training
     trainer = Trainer(config, pp.vocab_size, pp.max_len, pp.embedding_matrix)
-    trainer.initiate_training(train_dataset)
+    trainer.initiate_training(train_dataset, load_from_checkpoint=False)
 
     #check the output on a sample test image
     image = './data/Flicker8k_Images/3695064885_a6922f06b2.jpg'
