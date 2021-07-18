@@ -11,6 +11,7 @@ if __name__ == '__main__':
     pp = Preprocessor(config)
     # val = pp.prep_data()
     train_dataset, val_dataset = pp.prep_data()
+
     print('shape of embedding_matrix =', pp.embedding_matrix.shape)
     print('vocab_size = ', pp.vocab_size) 
     print('cardinality of train_dataset = ', train_dataset.cardinality().numpy())
@@ -20,10 +21,9 @@ if __name__ == '__main__':
      
     print('-'*100)
     
-   
     #training
     trainer = Trainer(config, pp.vocab_size, pp.max_len, pp.embedding_matrix)
-    trainer.initiate_training(train_dataset, load_from_checkpoint=False)
+    trainer.initiate_training(train_dataset, val_dataset, load_from_checkpoint=False)
 
     #check the output on a sample test image
     image = './data/Flicker8k_Images/3695064885_a6922f06b2.jpg'

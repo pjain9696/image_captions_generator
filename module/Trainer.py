@@ -1,7 +1,6 @@
-# from re import A
-from numpy.core.numeric import Infinity
 from extract_img_features import load_image
 import time, math
+from datetime import datetime
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -36,7 +35,7 @@ class Trainer:
         return tf.reduce_mean(loss_)
 
     @tf.function
-    def train_step(self, img_tensor, target):
+    def train_step(self, img_tensor, target, apply_gradients=True):
         loss = 0
 
         #initializing the hidden state for each batch, because the captions are not related image to image
@@ -44,7 +43,7 @@ class Trainer:
         #shape of hidden -> (batch_size, units)
 
         dec_input = tf.expand_dims([self.tokenizer.word_index['startseq']] * target.shape[0], 1)
-        # print('shape of de_input =', dec_input.shape)
+        # print('shape of dec_input =', dec_input.shape)
         #shape of dec_input -> (batch_size, 1)
 
         with tf.GradientTape() as tape:
@@ -63,13 +62,14 @@ class Trainer:
                 dec_input = tf.expand_dims(target[:,i], 1)
         
         total_loss = (loss / int(target.shape[1]))
-        trainable_variables = self.encoder.trainable_variables + self.decoder.trainable_variables
-        gradients = tape.gradient(loss, trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, trainable_variables))
+        if apply_gradients:
+            trainable_variables = self.encoder.trainable_variables + self.decoder.trainable_variables
+            gradients = tape.gradient(loss, trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, trainable_variables))
 
         return loss, total_loss
 
-    def initiate_training(self, train_dataset, load_from_checkpoint=True):
+    def initiate_training(self, train_dataset, val_dataset, load_from_checkpoint=True):
 
         print('latest_checkpoint = ', self.checkpoint_manager.latest_checkpoint)    
         if load_from_checkpoint and self.checkpoint_manager.latest_checkpoint:
@@ -85,20 +85,19 @@ class Trainer:
         min_loss = math.inf
         for epoch in range(start_epoch, EPOCHS):
             start = time.time()
-            total_loss = 0
-
+            train_loss = 0
             for (batch, (img_tensor, target)) in enumerate(train_dataset):
                 # print('entered batch number = ', batch)
                 batch_loss, t_loss = self.train_step(img_tensor, target)
-                total_loss += t_loss
+                train_loss += t_loss
 
                 if batch % 100 == 0:
                     average_batch_loss = batch_loss.numpy() / int(target.shape[1])
-                    # print(f'Epoch {epoch+1} Batch {batch} Loss {average_batch_loss:.4f}')
+                    print(f'{str(datetime.now())} Epoch {epoch+1} Train Batch {batch} Loss {average_batch_loss:.4f}')
             
             #storing the epoch end loss value to plot later
             num_steps = train_dataset.cardinality().numpy()
-            avg_loss_this_epoch = total_loss / num_steps
+            avg_loss_this_epoch = train_loss / num_steps
             loss_plot.append(avg_loss_this_epoch)
 
             #save the epoch with the lowest loss
@@ -107,7 +106,16 @@ class Trainer:
                 self.checkpoint_manager.save()
                 min_loss = avg_loss_this_epoch
             
-            print(f'Epoch {epoch+1} Average Loss {avg_loss_this_epoch:.6f}, time taken {time.time()-start:.2f}sec\n')
+            #check val_loss
+            val_loss = 0
+            for (batch, (img_tensor, target)) in enumerate(val_dataset):
+                batch_loss, t_loss = self.train_step(img_tensor, target)
+                val_loss += t_loss
+            
+            num_steps = val_dataset.cardinality().numpy()
+            avg_val_loss_this_epoch = val_loss / num_steps
+
+            print(f'Epoch {epoch+1} Average Train Loss {avg_loss_this_epoch:.6f}, Average Val Loss {avg_val_loss_this_epoch:.6f}, Time taken {time.time()-start:.2f}sec\n')
         
         #plot the losses
         # plt.plot(loss_plot)
