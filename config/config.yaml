@@ -1,0 +1,18 @@
+preprocessing:
+  experiment_size: 256
+  train_dir: './data/Flickr_8k.trainImages.txt'
+  val_dir: './data/Flickr_8k.devImages.txt'
+  test_dir: './data/Flickr_8k.testImages.txt'
+  tokenizer_dir: './data/derived_data/tokenizer.json'
+  captions_dir: './data/Flickr8k.token.txt'
+  images_dir: './data/Flicker8k_Images/'
+  images_features_dir: './data/img_features/'
+  karpathy_test_val_split_json: './data/annotations/dataset_flickr8k_karpathy.json'
+  raw_pretrained_embedding_dir: 'data/annotations/glove.840B.300d.txt'
+nn_params:
+  checkpoint_dir: './data/checkpoints/train'
+  embedding_dim: 300
+  BATCH_SIZE: 64
+  BUFFER_SIZE: 1000
+  EPOCHS: 5
+  units: 512
