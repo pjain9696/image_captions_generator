@@ -1,8 +1,7 @@
 import tensorflow as tf
 import numpy as np
-from tensorflow._api.v2 import data
-from tensorflow.keras.applications import inception_v3
-from tensorflow.python.framework.tensor_conversion_registry import get
+
+from utils import load_config
 
 def get_inceptionv3():
     print('\nentered into the func that loads inception v3 model\n')
@@ -47,9 +46,15 @@ def extract_and_save_img_features(img_files, batch_size):
         batch_paths = []
         for bf, path in zip(batch_features, path):
             path_ = path.numpy().decode('utf-8')
-            path_parts = path_.split('/')
-            path_parts[2] = 'img_features'
-            img_features_path = '/'.join(path_parts)
+
+            config = load_config()['preprocessing']
+            images_features_dir = config['images_features_dir']
+            img_features_path = images_features_dir + path_.split('/')[-1]
+            print('img_features_path = ', img_features_path)
+
+            # path_parts = path_.split('/')
+            # path_parts[2] = 'img_features'
+            # img_features_path = '/'.join(path_parts)
             np.save(img_features_path, bf.numpy())   
             numpy_paths.append(img_features_path)       
             count += 1
@@ -86,11 +91,16 @@ def load_image(filename):
         return img, filename
 
 def map_func(filename, cap):
-    filename = filename.decode('utf-8')
-    path_parts = filename.split('/')
-    path_parts[2] = 'img_features'
-    img_features_path = '/'.join(path_parts)
-    img_tensor = np.load(img_features_path + '.npy')
+    config = load_config()['preprocessing']
+    images_features_dir = config['images_features_dir']
+    img_features_path = images_features_dir + filename.decode('utf-8').split('/')[-1] + '.npy'
+
+    print('img_features_path = ', img_features_path)
+    # filename = filename.decode('utf-8')
+    # path_parts = filename.split('/')
+    # path_parts[2] = 'img_features'
+    # img_features_path = '/'.join(path_parts)
+    img_tensor = np.load(img_features_path)
     # print('img_features_path =', img_features_path)
     return img_tensor, cap
 
