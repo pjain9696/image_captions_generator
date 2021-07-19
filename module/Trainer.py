@@ -109,7 +109,7 @@ class Trainer:
             #check val_loss
             val_loss = 0
             for (batch, (img_tensor, target)) in enumerate(val_dataset):
-                batch_loss, t_loss = self.train_step(img_tensor, target)
+                batch_loss, t_loss = self.train_step(img_tensor, target, apply_gradients=False)
                 val_loss += t_loss
             
             num_steps = val_dataset.cardinality().numpy()
