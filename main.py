@@ -28,7 +28,7 @@ if __name__ == '__main__':
     trainer.initiate_training(train_dataset, val_dataset, load_from_checkpoint=False)
 
     #check the output on a sample test image
-    image = './data/Flicker8k_Images/3695064885_a6922f06b2.jpg'
+    image = './data/3695064885_a6922f06b2.jpg'
     image_rawname = image.split('/')[-1]
     result, attention_plot = trainer.evaluate(image)
     print('predicted caption is = {}\n'.format(result))
