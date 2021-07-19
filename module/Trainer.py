@@ -87,7 +87,7 @@ class Trainer:
             start = time.time()
             train_loss = 0
             for (batch, (img_tensor, target)) in enumerate(train_dataset):
-                # print('entered batch number = ', batch)
+                print('entered train batch number = ', batch)
                 batch_loss, t_loss = self.train_step(img_tensor, target)
                 train_loss += t_loss
 
@@ -109,6 +109,7 @@ class Trainer:
             #check val_loss
             val_loss = 0
             for (batch, (img_tensor, target)) in enumerate(val_dataset):
+                print('entered val batch number = ', batch)
                 batch_loss, t_loss = self.train_step(img_tensor, target, apply_gradients=False)
                 val_loss += t_loss
             

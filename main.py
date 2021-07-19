@@ -15,6 +15,8 @@ if __name__ == '__main__':
     print('shape of embedding_matrix =', pp.embedding_matrix.shape)
     print('vocab_size = ', pp.vocab_size) 
     print('cardinality of train_dataset = ', train_dataset.cardinality().numpy())
+    print('cardinality of val_dataset = ', val_dataset.cardinality().numpy())
+
     for element in train_dataset:
         print('shape of elements = {}, {}'.format(element[0].shape, element[1].shape))
         break
