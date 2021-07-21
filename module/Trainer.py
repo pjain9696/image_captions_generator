@@ -1,13 +1,14 @@
-from extract_img_features import load_image
-import time, math
+import time, math, os
 from datetime import datetime
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from PIL import Image
+from nltk.translate.bleu_score import sentence_bleu
 
-from utils import get_tokenizer_from_dir
-from extract_img_features import load_image, load_image_features_on_the_fly
+from utils import get_tokenizer_from_dir, get_image_to_caption_map
+from extract_img_features import load_image, load_image_features_on_the_fly, map_func
 
 class Trainer:
     def __init__(self, config, vocab_size, max_len, embedding_matrix):
@@ -46,7 +47,7 @@ class Trainer:
         # print('shape of dec_input =', dec_input.shape)
         #shape of dec_input -> (batch_size, 1)
 
-        with tf.GradientTape() as tape:
+        with tf.GradientTape() as tape:                    
             features = self.encoder(img_tensor)
             #shape of features after coming out of encoder fc -> (batch_size, 64, embedding_dim)
 
@@ -69,55 +70,76 @@ class Trainer:
 
         return loss, total_loss
 
-    def initiate_training(self, train_dataset, val_dataset, load_from_checkpoint=True):
-
+    def initiate_training(
+        self, 
+        train_dataset, 
+        val_dataset, 
+        load_from_checkpoint=True, 
+        save_loss_to_dir=True,
+        load_loss_file=True
+        ):
         print('latest_checkpoint = ', self.checkpoint_manager.latest_checkpoint)    
         if load_from_checkpoint and self.checkpoint_manager.latest_checkpoint:
             start_epoch = int(self.checkpoint_manager.latest_checkpoint.split('-')[-1])
             self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
         else:
-            start_epoch = 0
-
+            start_epoch = 1
         print('start_epoch =', start_epoch)
 
         EPOCHS = self.config['EPOCHS']
-        loss_plot = []
-        min_loss = math.inf
-        for epoch in range(start_epoch, EPOCHS):
+        train_loss_plot = []
+        val_loss_plot = []
+        min_train_loss = math.inf
+        for epoch in range(start_epoch, EPOCHS+1):
             start = time.time()
             train_loss = 0
             for (batch, (img_tensor, target)) in enumerate(train_dataset):
-                print('entered train batch number = ', batch)
                 batch_loss, t_loss = self.train_step(img_tensor, target)
                 train_loss += t_loss
 
                 if batch % 100 == 0:
                     average_batch_loss = batch_loss.numpy() / int(target.shape[1])
-                    print(f'{str(datetime.now())} Epoch {epoch+1} Train Batch {batch} Loss {average_batch_loss:.4f}')
+                    print(f'{str(datetime.now())} Epoch {epoch} Train Batch {batch} Loss {average_batch_loss:.4f}')
             
             #storing the epoch end loss value to plot later
             num_steps = train_dataset.cardinality().numpy()
-            avg_loss_this_epoch = train_loss / num_steps
-            loss_plot.append(avg_loss_this_epoch)
+            avg_train_loss_this_epoch = train_loss / num_steps
+            train_loss_plot.append(avg_train_loss_this_epoch.numpy())
 
             #save the epoch with the lowest loss
-            if avg_loss_this_epoch < min_loss:
-                print(f'saving a checkpoint, epoch = {epoch+1}, loss = {avg_loss_this_epoch}')
+            if avg_train_loss_this_epoch < min_train_loss:
+                print(f'this epoch has least loss, saving a checkpoint, epoch = {epoch}, loss = {avg_train_loss_this_epoch}')
                 self.checkpoint_manager.save()
-                min_loss = avg_loss_this_epoch
+                min_train_loss = avg_train_loss_this_epoch
             
             #check val_loss
+            print('computing loss on validation set...')
             val_loss = 0
             for (batch, (img_tensor, target)) in enumerate(val_dataset):
-                print('entered val batch number = ', batch)
                 batch_loss, t_loss = self.train_step(img_tensor, target, apply_gradients=False)
                 val_loss += t_loss
             
             num_steps = val_dataset.cardinality().numpy()
             avg_val_loss_this_epoch = val_loss / num_steps
+            val_loss_plot.append(avg_val_loss_this_epoch.numpy())
+            print(f'Epoch {epoch} Average Train Loss {avg_train_loss_this_epoch:.6f}, Average Val Loss {avg_val_loss_this_epoch:.6f}, Time taken {time.time()-start:.2f}sec\n')
 
-            print(f'Epoch {epoch+1} Average Train Loss {avg_loss_this_epoch:.6f}, Average Val Loss {avg_val_loss_this_epoch:.6f}, Time taken {time.time()-start:.2f}sec\n')
-        
+        if save_loss_to_dir:
+            loss_df = pd.DataFrame({
+                'epoch':list(range(start_epoch, EPOCHS+1)), 
+                'train_loss':train_loss_plot, 
+                'val_loss':val_loss_plot
+            })
+            loss_dir = self.config['loss_dir']
+            if load_loss_file and os.path.exists(loss_dir):
+                saved_loss_df = pd.read_csv(loss_dir)
+                saved_epochs = set(saved_loss_df['epoch'])
+                #remove saved epochs from loss_df:
+                loss_df = loss_df[~loss_df['epoch'].isin(saved_epochs)]
+                loss_df = pd.concat([saved_loss_df, loss_df]).reset_index(drop=True)
+            #save the loss_df to a file
+            loss_df.to_csv(loss_dir, index=False)
+
         #plot the losses
         # plt.plot(loss_plot)
         # plt.xlabel('Epochs')
@@ -127,29 +149,34 @@ class Trainer:
         # plt.show()
         return
 
-    def evaluate(self, image):
+    def evaluate(self, image=None, img_tensor_val=None, compute_attention_plot=True, batch_size=1):
         attention_plot = np.zeros((self.max_len, 64))
-        hidden = self.decoder.reset_state(batch_size=1)
+        hidden = self.decoder.reset_state(batch_size=batch_size)
 
-        img_tensor_val = load_image_features_on_the_fly(image)
+        if img_tensor_val is None:
+            img_tensor_val = load_image_features_on_the_fly(image)
+        
         features = self.encoder(img_tensor_val)
-        dec_input = tf.expand_dims([self.tokenizer.word_index['startseq']], 0)
+        dec_input = tf.expand_dims([self.tokenizer.word_index['startseq']] * batch_size, 0)
 
         result = []
         for i in range(self.max_len):
             predictions, hidden, attention_weights = self.decoder(dec_input, features, hidden)
-            attention_plot[i] = tf.reshape(attention_weights, (-1,)).numpy()
+            if compute_attention_plot:
+                attention_plot[i] = tf.reshape(attention_weights, (-1,)).numpy()
 
             # print(f'i = {i}, predictions shape = {predictions.shape}\n')
             predicted_id = tf.random.categorical(predictions, 1)[0][0].numpy()
-            result.append(self.tokenizer.index_word[predicted_id])
 
             if self.tokenizer.index_word[predicted_id] == 'endseq':
+                result = ' '.join(result)
                 return result, attention_plot
             
+            result.append(self.tokenizer.index_word[predicted_id])
             dec_input = tf.expand_dims([predicted_id], 0)
         
         attention_plot = attention_plot[:len(result), :]
+        result = ' '.join(result)
         return result, attention_plot
     
     def plot_attention(self, image, result, attention_plot):
@@ -167,6 +194,38 @@ class Trainer:
         
         plt.tight_layout()
         plt.show()
+    
+    def compute_bleu_scores(self, config, group='val'):
+        print('computing BLEU scores for {} set'.format(group))
+        df = get_image_to_caption_map(config['preprocessing'], group)
+        df['caption'] = df['caption'].apply(lambda x: ' '.join(x.split()[1:-1])) #remove startseq & endseq from captions
+        filename_to_captions_dict = df.groupby('filename')['caption'].apply(list).to_dict()
+
+        pred_df_rows = []
+        for filename, captions_list in filename_to_captions_dict.items():
+            img_tensor_val, _ = map_func(filename, '_' )
+            predicted_caption, _ = self.evaluate(img_tensor_val=img_tensor_val, compute_attention_plot=False)
+            # print('predicted_caption = {}\n real_captions = {}'.format(predicted_caption, captions_list))
+            
+            #compute BLEU scores
+            captions_list_words = [str.lower(x[:-2]).split() for x in captions_list]
+            predicted_caption_words = predicted_caption.split()
+            bleu_1 = round(sentence_bleu(captions_list_words, predicted_caption_words, weights=[1.0, 0, 0, 0]), 3)
+            bleu_2 = round(sentence_bleu(captions_list_words, predicted_caption_words, weights=[0.5, 0.5, 0, 0]), 3)
+            bleu_3 = round(sentence_bleu(captions_list_words, predicted_caption_words, weights=[0.33, 0.33, 0.33, 0]), 3)
+            bleu_4 = round(sentence_bleu(captions_list_words, predicted_caption_words, weights=[0.25, 0.25, 0.25, 0.25]), 3)
+            # print(f'bleu_1 = {bleu_1}, bleu_2 = {bleu_2}, bleu_3 = {bleu_3}, bleu_4 = {bleu_4}')
+            pred_df_rows.append([filename, bleu_1, bleu_2, bleu_3, bleu_4, predicted_caption] + captions_list)
+
+        bleu_headers = ['bleu_1', 'bleu_2', 'bleu_3', 'bleu_4']
+        caption_headers = ['pred_cap', 'real_cap_1', 'real_cap_2', 'real_cap_3', 'real_cap_4', 'real_cap_5']
+        headers = ['filename' ] + bleu_headers + caption_headers
+        pred_df = pd.DataFrame(pred_df_rows, columns=headers)
+        print(pred_df[bleu_headers].describe())
+
+        #write to disk
+        pred_df.to_csv(config['nn_params']['pred_df_dir'], index=False)
+        return pred_df
 
 class CNN_Encoder(tf.keras.Model):
     def __init__(self, embedding_dim):
@@ -221,16 +280,34 @@ class RNN_Decoder(tf.keras.Model):
             weights = [embedding_matrix],
             trainable = False
         )
-        self.gru = tf.keras.layers.GRU(
-            self.units, 
-            return_sequences = True, 
-            return_state = True, 
-            recurrent_initializer = 'glorot_uniform'
-        )
+        self.gru = self.rnn_type()
+        # self.gru = tf.keras.layers.GRU(
+        #     self.units, 
+        #     return_sequences = True, 
+        #     return_state = True, 
+        #     recurrent_initializer = 'glorot_uniform'
+        # )
         self.fc1 = tf.keras.layers.Dense(self.units)
         self.fc2 = tf.keras.layers.Dense(vocab_size)
         self.attention = BahdanauAttention(self.units)
     
+    def rnn_type(self):
+        # if tf.test.is_gpu_available():
+        if len(tf.config.list_physical_devices('GPU')):
+            return tf.compat.v1.keras.layers.CuDNNGRU(
+                self.units, 
+                return_sequences=True,
+                return_state=True,
+                recurrent_initializer='glorot_uniform'
+            )
+        else:
+            return tf.keras.layers.GRU(
+                self.units, 
+                return_sequences = True, 
+                return_state = True, 
+                recurrent_initializer = 'glorot_uniform'
+            )
+
     def call(self, x, features, hidden):
         #get attention output
         context_vector, attention_weights = self.attention(features, hidden)
@@ -262,6 +339,4 @@ class RNN_Decoder(tf.keras.Model):
     
     def reset_state(self, batch_size):
         return tf.zeros((batch_size, self.units))
-
-
-
+        

@@ -50,11 +50,8 @@ def extract_and_save_img_features(img_files, batch_size):
             config = load_config()['preprocessing']
             images_features_dir = config['images_features_dir']
             img_features_path = images_features_dir + path_.split('/')[-1]
-            print('img_features_path = ', img_features_path)
+            # print('img_features_path = ', img_features_path)
 
-            # path_parts = path_.split('/')
-            # path_parts[2] = 'img_features'
-            # img_features_path = '/'.join(path_parts)
             np.save(img_features_path, bf.numpy())   
             numpy_paths.append(img_features_path)       
             count += 1
@@ -64,24 +61,8 @@ def extract_and_save_img_features(img_files, batch_size):
     # with open('data/numpy_paths_numfiles{}'.format(len(img_files)), 'w') as file_handler:
     #     for item in numpy_paths:
     #         file_handler.write('{}\n'.format(item))
-    
-    # print(file_paths)
-    # print('len of encoded_img = ', len(encoded_img))
-    # print('len of caption_padded = ', len(caption_padded))
-
-    # dataset = tf.data.Dataset.from_tensor_slices((encoded_img, caption_padded))
-    # dataset = dataset.shuffle(nn_params['BUFFER_SIZE']).batch(nn_params['BATCH_SIZE'], drop_remainder=True)
-    # dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
-
-    # count = 0
-    # for img, caption in dataset:
-    #     count += 1
-    #     print('\ncount = ', count) 
-    #     print('shape of img: {}'.format(img.shape))
-    #     print('shape of caption: {}'.format(caption.shape))
 
     return image_dataset
-    #figure out what are the contents of this image_dataset, and if reshaping img inside for loop is preserved ?
         
 def load_image(filename):
         img = tf.io.read_file(filename)
@@ -91,17 +72,12 @@ def load_image(filename):
         return img, filename
 
 def map_func(filename, cap):
+    if isinstance(filename, bytes):
+        filename = filename.decode('utf-8')
     config = load_config()['preprocessing']
     images_features_dir = config['images_features_dir']
-    img_features_path = images_features_dir + filename.decode('utf-8').split('/')[-1] + '.npy'
-
-    # print('img_features_path = ', img_features_path)
-    # filename = filename.decode('utf-8')
-    # path_parts = filename.split('/')
-    # path_parts[2] = 'img_features'
-    # img_features_path = '/'.join(path_parts)
+    img_features_path = images_features_dir + filename.split('/')[-1] + '.npy'
     img_tensor = np.load(img_features_path)
-    # print('img_features_path =', img_features_path)
     return img_tensor, cap
 
 def load_image_features_from_disk(img_files_list, cap_padded_list, BUFFER_SIZE, BATCH_SIZE):

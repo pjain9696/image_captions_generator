@@ -95,3 +95,4 @@ def get_tokenizer_from_dir(config):
         data = json.load(f)
         tokenizer = tf.keras.preprocessing.text.tokenizer_from_json(data)
     return tokenizer
+    
