@@ -1,6 +1,11 @@
+import pandas as pd
+from nltk.translate.bleu_score import sentence_bleu
+import time
+
 from module.Preprocessor import Preprocessor
 from module.Trainer import Trainer
-from utils import load_config, get_all_captions_for_image
+from utils import load_config, get_all_captions_for_image, get_image_to_caption_map
+from extract_img_features import map_func
 
 # config = load_config()
 # print(config)
@@ -25,18 +30,10 @@ if __name__ == '__main__':
     
     #training
     trainer = Trainer(config, pp.vocab_size, pp.max_len, pp.embedding_matrix)
-    trainer.initiate_training(train_dataset, val_dataset, load_from_checkpoint=False)
+    trainer.initiate_training(train_dataset, val_dataset, load_from_checkpoint=True, load_loss_file=True, save_loss_to_dir=False)
 
-    #check the output on a sample test image
-    image = './data/3695064885_a6922f06b2.jpg'
-    image_rawname = image.split('/')[-1]
-    result, attention_plot = trainer.evaluate(image)
-    print('predicted caption is = {}\n'.format(result))
+    bleu_df = trainer.compute_bleu_scores(config, group='val')
 
-    real_captions = get_all_captions_for_image(image_rawname)
-    print('\nreal captions = {}\n'.format(real_captions))
-    trainer.plot_attention(image, result, attention_plot)
-
-    #train
-    '''specify the training algorithm to use'''
-    '''pass in train/val sets to training algorithm'''
+    #todo:
+    # implement beam search
+    # try other pretrained models instead of Inception v3
