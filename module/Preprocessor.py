@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+tf.random.set_seed(1)
 import os, io, json
 from utils import load_config, get_image_to_caption_map, load_pretrained_embeddings
 from extract_img_features import get_inceptionv3, extract_and_save_img_features, load_image_features_from_disk
@@ -41,7 +42,7 @@ class Preprocessor:
         train_dataset = load_image_features_from_disk(train_img_files, train_cap_padded, self.nn_params['BUFFER_SIZE'], self.nn_params['BATCH_SIZE'])
         val_dataset = load_image_features_from_disk(val_img_files, val_cap_padded, self.nn_params['BUFFER_SIZE'], self.nn_params['BATCH_SIZE'])
         return train_dataset, val_dataset
-        
+
     def extract_caption_features(self):
         train_captions = self.train_df['caption'].tolist()
         val_captions = self.val_df['caption'].tolist()
@@ -51,7 +52,7 @@ class Preprocessor:
             # filters='!"#$%&()*+,-./:;=?@[\\]^_`{|}~\t\n' #do not filter '<' and '>'
         )
         tokenizer.fit_on_texts(train_captions)
-
+        
         train_cap_tokenized = tokenizer.texts_to_sequences(train_captions)
         val_cap_tokenized = tokenizer.texts_to_sequences(val_captions)
         

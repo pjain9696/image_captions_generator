@@ -1,4 +1,5 @@
 import tensorflow as tf
+tf.random.set_seed(1)
 import numpy as np
 
 from utils import load_config
@@ -71,12 +72,15 @@ def load_image(filename):
         img = tf.keras.applications.inception_v3.preprocess_input(img)
         return img, filename
 
-def map_func(filename, cap):
+def map_func(filename, cap, full_path=True):
     if isinstance(filename, bytes):
         filename = filename.decode('utf-8')
     config = load_config()['preprocessing']
     images_features_dir = config['images_features_dir']
-    img_features_path = images_features_dir + filename.split('/')[-1] + '.npy'
+    if full_path:
+        img_features_path = images_features_dir + filename.split('/')[-1] + '.npy'
+    else:
+        img_features_path = images_features_dir + filename + '.npy'
     img_tensor = np.load(img_features_path)
     return img_tensor, cap
 

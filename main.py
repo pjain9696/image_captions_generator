@@ -30,9 +30,19 @@ if __name__ == '__main__':
     
     #training
     trainer = Trainer(config, pp.vocab_size, pp.max_len, pp.embedding_matrix)
-    trainer.initiate_training(train_dataset, val_dataset, load_from_checkpoint=True, load_loss_file=True, save_loss_to_dir=False)
+    trainer.initiate_training(
+        train_dataset, 
+        val_dataset, 
+        load_from_checkpoint=False, 
+        load_loss_file=False, 
+        save_loss_to_dir=True
+    )
 
-    bleu_df = trainer.compute_bleu_scores(config, group='val')
+    # bleu_df = trainer.compute_bleu_scores(config, group='val')
+
+    # filename_short = '3695064885_a6922f06b2.jpg'
+    # pred_cap = trainer.predict_caption_beam_search(filename_short)
+    # print(pred_cap)
 
     #todo:
     # implement beam search

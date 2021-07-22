@@ -3,9 +3,12 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+tf.random.set_seed(1)
 import matplotlib.pyplot as plt
 from PIL import Image
 from nltk.translate.bleu_score import sentence_bleu
+import warnings
+warnings.filterwarnings('ignore')
 
 from utils import get_tokenizer_from_dir, get_image_to_caption_map
 from extract_img_features import load_image, load_image_features_on_the_fly, map_func
@@ -25,7 +28,11 @@ class Trainer:
         self.loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
 
         self.checkpoint = tf.train.Checkpoint(encoder=self.encoder, decoder=self.decoder, optimizer=self.optimizer)
-        self.checkpoint_manager = tf.train.CheckpointManager(self.checkpoint, self.config['checkpoint_dir'], max_to_keep=2)
+        self.checkpoint_manager = tf.train.CheckpointManager(
+            self.checkpoint, 
+            self.config['checkpoint_dir'] + str(self.vocab_size) + '/', 
+            max_to_keep=2
+        )
 
     def loss_function(self, real, pred):
         mask = tf.math.logical_not(tf.math.equal(real, 0))
@@ -130,7 +137,7 @@ class Trainer:
                 'train_loss':train_loss_plot, 
                 'val_loss':val_loss_plot
             })
-            loss_dir = self.config['loss_dir']
+            loss_dir = self.config['loss_dir'] + str(self.vocab_size) + '/loss_per_epoch.csv'
             if load_loss_file and os.path.exists(loss_dir):
                 saved_loss_df = pd.read_csv(loss_dir)
                 saved_epochs = set(saved_loss_df['epoch'])
@@ -149,6 +156,65 @@ class Trainer:
         # plt.show()
         return
 
+    def predict_caption_beam_search(self, filename_short, beam_index=3):
+        max_len = self.max_len
+    
+        img_tensor_val, _ = map_func(filename_short, 'caption_placeholder', full_path=False)
+
+        hidden = self.decoder.reset_state(batch_size=1)
+        features = self.encoder(img_tensor_val)
+        dec_input = tf.expand_dims([self.tokenizer.word_index['startseq']], 0)
+        seq = [self.tokenizer.word_index['startseq']]
+        #in_text -> [[[idx], prob]]; prob=0 initially -> [[startseq_idx, 0.0]]
+        #in_text -> [sequence_till_now, prob, hidden, dec_input] 
+            #dec_input -> last word token
+        in_text = [
+            [seq, 0.0, hidden, dec_input]
+        ]
+        endseq_id = self.tokenizer.word_index['endseq']
+        finished_hypothesis = []
+
+        while len(in_text) > 0:
+            print('len of in_text =', len(in_text))
+            tempList = []
+            for seq in in_text:
+                print('seq = ', seq[0])
+                this_hidden = seq[2]
+                this_dec_input = seq[3]
+                predictions, hidden, attention_weights = self.decoder(this_dec_input, features, this_hidden)
+                predictions_log_prob = tf.math.log(tf.nn.softmax(predictions))
+                top_pred_ids = tf.nn.top_k(predictions, beam_index)[1][0].numpy()
+                for word_id in top_pred_ids:
+                    next_seq, log_prob = seq[0][:], seq[1]
+                    #stopping criterion -> if endseq encountered max_len achieved
+                    if word_id == endseq_id:
+                        finished_hypothesis.append([next_seq, log_prob/len(next_seq)])
+                        continue
+                    
+                    next_seq.append(word_id)
+                    log_prob += predictions_log_prob.numpy()[0][word_id]
+
+                    #stopping criterion -> if max_len achieved
+                    if len(next_seq) == max_len:
+                        finished_hypothesis.append([next_seq, log_prob/len(next_seq)])
+                        continue
+                    
+                    dec_input = tf.expand_dims([word_id], 0)
+                    tempList.append([next_seq, log_prob, hidden, dec_input])
+            in_text = tempList
+            #sort according to probabilities
+            in_text = sorted(in_text, reverse=True, key=lambda l: l[1])
+            #take top words
+            in_text = in_text[:beam_index]
+            print('done with current iteration, len of in_text =', len(in_text))
+        
+        print('len of finished hypo =', len(finished_hypothesis))
+        finished_hypothesis = sorted(finished_hypothesis, reverse=True, key=lambda l: l[1])
+        pred_cap_ids = finished_hypothesis[0][0]
+        pred = [self.tokenizer.index_word[x] for x in pred_cap_ids]
+        print('\n\npredicted_caption = {}\n\n'.format(pred))
+        return pred
+    
     def evaluate(self, image=None, img_tensor_val=None, compute_attention_plot=True, batch_size=1):
         attention_plot = np.zeros((self.max_len, 64))
         hidden = self.decoder.reset_state(batch_size=batch_size)
@@ -166,7 +232,8 @@ class Trainer:
                 attention_plot[i] = tf.reshape(attention_weights, (-1,)).numpy()
 
             # print(f'i = {i}, predictions shape = {predictions.shape}\n')
-            predicted_id = tf.random.categorical(predictions, 1)[0][0].numpy()
+            # predicted_id = tf.random.categorical(predictions, 1)[0][0].numpy()
+            predicted_id = tf.nn.top_k(predictions, 1)[1][0][0].numpy()
 
             if self.tokenizer.index_word[predicted_id] == 'endseq':
                 result = ' '.join(result)
@@ -221,10 +288,10 @@ class Trainer:
         caption_headers = ['pred_cap', 'real_cap_1', 'real_cap_2', 'real_cap_3', 'real_cap_4', 'real_cap_5']
         headers = ['filename' ] + bleu_headers + caption_headers
         pred_df = pd.DataFrame(pred_df_rows, columns=headers)
-        print(pred_df[bleu_headers].describe())
+        print(pred_df.describe())
 
         #write to disk
-        pred_df.to_csv(config['nn_params']['pred_df_dir'], index=False)
+        pred_df.to_csv(config['nn_params']['pred_df_dir'] + str(self.vocab_size) + '/result.csv', index=False)
         return pred_df
 
 class CNN_Encoder(tf.keras.Model):
