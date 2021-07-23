@@ -29,12 +29,13 @@ if __name__ == '__main__':
         save_loss_to_dir=True
     )
 
-    bleu_df = trainer.compute_bleu_scores(config, group='val')
+    #metrics
+    # bleu_df = trainer.compute_bleu_scores(config, group='val', search_method='greedy')
+    # bleu_df = trainer.compute_bleu_scores(config, group='val', search_method='beam')
 
     # filename_short = '3695064885_a6922f06b2.jpg'
     # pred_cap = trainer.predict_caption_beam_search(filename_short)
     # print(pred_cap)
 
     #todo:
-    # implement beam search
     # try other pretrained models instead of Inception v3

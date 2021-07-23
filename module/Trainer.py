@@ -169,16 +169,13 @@ class Trainer:
         # plt.show()
         return
 
-    def predict_caption_beam_search(self, filename_short, beam_index=3):
-        max_len = self.max_len
-    
-        img_tensor_val, _ = map_func(filename_short, 'caption_placeholder', full_path=False)
-
+    def beam_search_pred(self, img_tensor_val, beam_index=3):
         hidden = self.decoder.reset_state(batch_size=1)
         features = self.encoder(img_tensor_val)
         dec_input = tf.expand_dims([self.tokenizer.word_index['startseq']], 0)
+    
+        max_len = self.max_len
         seq = [self.tokenizer.word_index['startseq']]
-        #in_text -> [[[idx], prob]]; prob=0 initially -> [[startseq_idx, 0.0]]
         #in_text -> [sequence_till_now, prob, hidden, dec_input] 
             #dec_input -> last word token
         in_text = [
@@ -188,10 +185,10 @@ class Trainer:
         finished_hypothesis = []
 
         while len(in_text) > 0:
-            print('len of in_text =', len(in_text))
+            # print('len of in_text =', len(in_text))
             tempList = []
             for seq in in_text:
-                print('seq = ', seq[0])
+                # print('seq = ', seq[0])
                 this_hidden = seq[2]
                 this_dec_input = seq[3]
                 predictions, hidden, attention_weights = self.decoder(this_dec_input, features, this_hidden)
@@ -199,9 +196,11 @@ class Trainer:
                 top_pred_ids = tf.nn.top_k(predictions, beam_index)[1][0].numpy()
                 for word_id in top_pred_ids:
                     next_seq, log_prob = seq[0][:], seq[1]
-                    #stopping criterion -> if endseq encountered max_len achieved
+                    #stopping criterion -> if endseq encountered, but not as first prediction
                     if word_id == endseq_id:
-                        finished_hypothesis.append([next_seq, log_prob/len(next_seq)])
+                        if len(next_seq) == 1:
+                            continue
+                        finished_hypothesis.append([next_seq, log_prob/(len(next_seq)-1)])
                         continue
                     
                     next_seq.append(word_id)
@@ -209,7 +208,7 @@ class Trainer:
 
                     #stopping criterion -> if max_len achieved
                     if len(next_seq) == max_len:
-                        finished_hypothesis.append([next_seq, log_prob/len(next_seq)])
+                        finished_hypothesis.append([next_seq, log_prob/(len(next_seq)-1)])
                         continue
                     
                     dec_input = tf.expand_dims([word_id], 0)
@@ -219,22 +218,21 @@ class Trainer:
             in_text = sorted(in_text, reverse=True, key=lambda l: l[1])
             #take top words
             in_text = in_text[:beam_index]
-            print('done with current iteration, len of in_text =', len(in_text))
+            # print('done with current iteration, len of in_text =', len(in_text))
         
-        print('len of finished hypo =', len(finished_hypothesis))
+        # print('len of finished hypo =', len(finished_hypothesis))
         finished_hypothesis = sorted(finished_hypothesis, reverse=True, key=lambda l: l[1])
         pred_cap_ids = finished_hypothesis[0][0]
-        pred = [self.tokenizer.index_word[x] for x in pred_cap_ids]
-        print('\n\npredicted_caption = {}\n\n'.format(pred))
+        pred = [self.tokenizer.index_word[x] for x in pred_cap_ids[1:]]
+        pred = ' '.join(pred)
+        # print('predicted_caption = {}\n'.format(pred))
         return pred
     
-    def evaluate(self, image=None, img_tensor_val=None, compute_attention_plot=True, batch_size=1):
+    def evaluate(self, img_tensor_val, compute_attention_plot=True, batch_size=1):
         attention_plot = np.zeros((self.max_len, 64))
-        hidden = self.decoder.reset_state(batch_size=batch_size)
-
-        if img_tensor_val is None:
-            img_tensor_val = load_image_features_on_the_fly(image)
-        
+        # if img_tensor_val is None:
+        #     img_tensor_val = load_image_features_on_the_fly(image)        
+        hidden = self.decoder.reset_state(batch_size=batch_size)        
         features = self.encoder(img_tensor_val)
         dec_input = tf.expand_dims([self.tokenizer.word_index['startseq']] * batch_size, 0)
 
@@ -275,8 +273,8 @@ class Trainer:
         plt.tight_layout()
         plt.show()
     
-    def compute_bleu_scores(self, config, group='val'):
-        print('{} computing BLEU scores for {} set'.format(str(datetime.now()), group))
+    def compute_bleu_scores(self, config, group='val', search_method='greedy'):
+        print(f'{str(datetime.now())} computing BLEU scores for {group} set using {search_method} search ')
         df = get_image_to_caption_map(config['preprocessing'], group)
         df['caption'] = df['caption'].apply(lambda x: ' '.join(x.split()[1:-1])) #remove startseq & endseq from captions
         filename_to_captions_dict = df.groupby('filename')['caption'].apply(list).to_dict()
@@ -284,7 +282,10 @@ class Trainer:
         pred_df_rows = []
         for filename, captions_list in filename_to_captions_dict.items():
             img_tensor_val, _ = map_func(filename, '_' )
-            predicted_caption, _ = self.evaluate(img_tensor_val=img_tensor_val, compute_attention_plot=False)
+            if search_method == 'greedy':
+                predicted_caption, _ = self.evaluate(img_tensor_val, compute_attention_plot=False)
+            elif search_method == 'beam':
+                predicted_caption = self.beam_search_pred(img_tensor_val)
             # print('predicted_caption = {}\n real_captions = {}'.format(predicted_caption, captions_list))
             
             #compute BLEU scores
@@ -304,7 +305,8 @@ class Trainer:
         print(pred_df.describe())
 
         #write to disk
-        pred_df.to_csv(config['nn_params']['pred_df_dir'] + str(self.vocab_size) + '/result.csv', index=False)
+        filename = config['nn_params']['pred_df_dir'] + str(self.vocab_size) + '/result_{}.csv'.format(search_method)
+        pred_df.to_csv(filename, index=False)
         return pred_df
 
 class CNN_Encoder(tf.keras.Model):
