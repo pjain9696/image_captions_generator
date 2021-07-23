@@ -1,5 +1,5 @@
 preprocessing:
-  experiment_size: 256
+  # experiment_size: 256
   train_dir: './data/Flickr_8k.trainImages.txt'
   val_dir: './data/Flickr_8k.devImages.txt'
   test_dir: './data/Flickr_8k.testImages.txt'
@@ -25,7 +25,7 @@ nn_params:
   embedding_dim: 300
   BATCH_SIZE: 64
   BUFFER_SIZE: 1000
-  EPOCHS: 3
+  EPOCHS: 5
   units: 512
 
 #command to copy checkpoints from google colab to drive:

@@ -44,8 +44,7 @@ class Trainer:
 
     @tf.function
     def train_step(self, img_tensor, target, apply_gradients=True):
-        loss = 0
-
+        total_loss = 0
         #initializing the hidden state for each batch, because the captions are not related image to image
         hidden = self.decoder.reset_state(batch_size=target.shape[0])
         #shape of hidden -> (batch_size, units)
@@ -64,18 +63,33 @@ class Trainer:
 
                 # print('predictions shape =', predictions.shape)
                 # print('target[:,i] =', tf.print(target[:,i]))
-                loss += self.loss_function(target[:,i], predictions)
+                total_loss += self.loss_function(target[:,i], predictions)
 
                 #using teacher forcing
                 dec_input = tf.expand_dims(target[:,i], 1)
         
-        total_loss = (loss / int(target.shape[1]))
+        avg_loss = (total_loss / int(target.shape[1]))
         if apply_gradients:
             trainable_variables = self.encoder.trainable_variables + self.decoder.trainable_variables
-            gradients = tape.gradient(loss, trainable_variables)
+            gradients = tape.gradient(total_loss, trainable_variables)
             self.optimizer.apply_gradients(zip(gradients, trainable_variables))
 
-        return loss, total_loss
+        return avg_loss
+
+    def validation_step(self, img_tensor, target):
+        hidden = self.decoder.reset_state(batch_size=target.shape[0])
+        dec_input = tf.expand_dims([self.tokenizer.word_index['startseq']] * target.shape[0], 1)        
+        features = self.encoder(img_tensor)
+
+        total_loss = 0
+        for i in range(1, target.shape[1]):
+            predictions, hidden, _ = self.decoder(dec_input, features, hidden)
+            total_loss += self.loss_function(target[:,i], predictions)
+            #using teacher forcing
+            dec_input = tf.expand_dims(target[:,i], 1)
+        
+        avg_loss = (total_loss / int(target.shape[1]))
+        return avg_loss
 
     def initiate_training(
         self, 
@@ -85,8 +99,8 @@ class Trainer:
         save_loss_to_dir=True,
         load_loss_file=True
         ):
-        print('latest_checkpoint = ', self.checkpoint_manager.latest_checkpoint)    
         if load_from_checkpoint and self.checkpoint_manager.latest_checkpoint:
+            print('latest_checkpoint = ', self.checkpoint_manager.latest_checkpoint)    
             start_epoch = int(self.checkpoint_manager.latest_checkpoint.split('-')[-1])
             self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
         else:
@@ -94,41 +108,40 @@ class Trainer:
         print('start_epoch =', start_epoch)
 
         EPOCHS = self.config['EPOCHS']
-        train_loss_plot = []
-        val_loss_plot = []
+        train_loss_plot, val_loss_plot = [], []
         min_train_loss = math.inf
         for epoch in range(start_epoch, EPOCHS+1):
             start = time.time()
+
+            #run across training set
             train_loss = 0
             for (batch, (img_tensor, target)) in enumerate(train_dataset):
-                batch_loss, t_loss = self.train_step(img_tensor, target)
-                train_loss += t_loss
-
+                avg_loss = self.train_step(img_tensor, target)
+                train_loss += avg_loss
                 if batch % 100 == 0:
-                    average_batch_loss = batch_loss.numpy() / int(target.shape[1])
-                    print(f'{str(datetime.now())} Epoch {epoch} Train Batch {batch} Loss {average_batch_loss:.4f}')
-            
-            #storing the epoch end loss value to plot later
+                    print(f'{str(datetime.now())} Epoch {epoch} Train Batch {batch} Loss {avg_loss:.4f}')
             num_steps = train_dataset.cardinality().numpy()
             avg_train_loss_this_epoch = train_loss / num_steps
-            train_loss_plot.append(avg_train_loss_this_epoch.numpy())
 
-            #save the epoch with the lowest loss
+            #check val_loss
+            print(f'{str(datetime.now())} computing loss on validation set...')
+            val_loss = 0
+            for (batch, (img_tensor, target)) in enumerate(val_dataset):
+                avg_loss = self.validation_step(img_tensor, target)
+                val_loss += avg_loss
+            num_steps = val_dataset.cardinality().numpy()
+            avg_val_loss_this_epoch = val_loss / num_steps
+
+            #storing the epoch end loss values to plot later
+            train_loss_plot.append(avg_train_loss_this_epoch.numpy())
+            val_loss_plot.append(avg_val_loss_this_epoch.numpy())
+
+            #if this epoch has lowest loss till now, save a checkpoint
             if avg_train_loss_this_epoch < min_train_loss:
                 print(f'this epoch has least loss, saving a checkpoint, epoch = {epoch}, loss = {avg_train_loss_this_epoch}')
                 self.checkpoint_manager.save()
                 min_train_loss = avg_train_loss_this_epoch
             
-            #check val_loss
-            print('computing loss on validation set...')
-            val_loss = 0
-            for (batch, (img_tensor, target)) in enumerate(val_dataset):
-                batch_loss, t_loss = self.train_step(img_tensor, target, apply_gradients=False)
-                val_loss += t_loss
-            
-            num_steps = val_dataset.cardinality().numpy()
-            avg_val_loss_this_epoch = val_loss / num_steps
-            val_loss_plot.append(avg_val_loss_this_epoch.numpy())
             print(f'Epoch {epoch} Average Train Loss {avg_train_loss_this_epoch:.6f}, Average Val Loss {avg_val_loss_this_epoch:.6f}, Time taken {time.time()-start:.2f}sec\n')
 
         if save_loss_to_dir:
@@ -263,7 +276,7 @@ class Trainer:
         plt.show()
     
     def compute_bleu_scores(self, config, group='val'):
-        print('computing BLEU scores for {} set'.format(group))
+        print('{} computing BLEU scores for {} set'.format(str(datetime.now()), group))
         df = get_image_to_caption_map(config['preprocessing'], group)
         df['caption'] = df['caption'].apply(lambda x: ' '.join(x.split()[1:-1])) #remove startseq & endseq from captions
         filename_to_captions_dict = df.groupby('filename')['caption'].apply(list).to_dict()
