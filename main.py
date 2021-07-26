@@ -29,15 +29,15 @@ if __name__ == '__main__':
     trainer.initiate_training(
         train_dataset, 
         val_dataset, 
-        load_from_checkpoint=False, 
+        load_from_checkpoint=True, 
         load_loss_file=True, 
-        save_loss_to_dir=True
+        save_loss_to_dir=True,
     )
 
-    #metrics
-    # bleu_df = trainer.compute_bleu_scores(config, group='val', search_method='greedy')
-    # bleu_df = trainer.compute_bleu_scores(config, group='val', search_method='beam')
+    # metrics
+    bleu_df = trainer.compute_bleu_scores(config, group='val', search_method='greedy')
+    bleu_df = trainer.compute_bleu_scores(config, group='train', search_method='greedy')
 
-    filename_short = './data/Flicker8k_Images/3695064885_a6922f06b2.jpg'
-    pred_cap = trainer.compute_bleu_scores(config, 'val', filter_files=[filename_short])
-    print(pred_cap)
+    # filename_short = './data/Flicker8k_Images/3695064885_a6922f06b2.jpg'
+    # pred_cap = trainer.compute_bleu_scores(config, 'val', filter_files=[filename_short])
+    # print(pred_cap)

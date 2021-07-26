@@ -98,8 +98,11 @@ class Trainer:
         val_dataset, 
         load_from_checkpoint=True, 
         save_loss_to_dir=True,
-        load_loss_file=True
+        load_loss_file=True  
         ):
+        sample_img_tensor_val = load_image_features_on_the_fly('data/110595925_f3395c8bd6.jpg')
+        caption_per_epoch_rows = []
+
         if load_from_checkpoint and self.checkpoint_manager.latest_checkpoint:
             print('latest_checkpoint = ', self.checkpoint_manager.latest_checkpoint)    
             start_epoch = int(self.checkpoint_manager.latest_checkpoint.split('-')[-1])
@@ -143,6 +146,9 @@ class Trainer:
                 self.checkpoint_manager.save()
                 min_train_loss = avg_train_loss_this_epoch
             
+            #check the caption on sample image
+            this_epoch_pred_cap, _ = self.evaluate(sample_img_tensor_val, compute_attention_plot=False)
+            caption_per_epoch_rows.append([epoch, this_epoch_pred_cap])
             print(f'Epoch {epoch} Average Train Loss {avg_train_loss_this_epoch:.6f}, Average Val Loss {avg_val_loss_this_epoch:.6f}, Time taken {time.time()-start:.2f}sec\n')
 
         if save_loss_to_dir:
@@ -160,6 +166,10 @@ class Trainer:
                 loss_df = pd.concat([saved_loss_df, loss_df]).reset_index(drop=True)
             #save the loss_df to a file
             loss_df.to_csv(loss_dir, index=False)
+
+        #save predicted caption per epoch to dir
+        caption_per_epoch_df = pd.DataFrame(caption_per_epoch_rows, columns=['epoch', 'pred_cap'])
+        caption_per_epoch_df.to_csv(self.store_dir + self.config['pred_df_dir'] + 'pred_cap_per_epoch.csv', index=False)
 
         #plot the losses
         # plt.plot(loss_plot)
@@ -310,7 +320,7 @@ class Trainer:
         print(pred_df.describe())
 
         #write to disk
-        filename = config['store'] + config['nn_params']['pred_df_dir'] + 'result_{}.csv'.format(search_method)
+        filename = config['store'] + config['nn_params']['pred_df_dir'] + 'result_{}_{}.csv'.format(group, search_method)
         pred_df.to_csv(filename, index=False)
         return pred_df
 

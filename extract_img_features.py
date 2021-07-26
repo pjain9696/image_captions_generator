@@ -1,7 +1,7 @@
 import tensorflow as tf
 tf.random.set_seed(1)
 import numpy as np
-
+import os
 from utils import load_config
 
 def get_inceptionv3():
@@ -94,12 +94,18 @@ def load_image_features_from_disk(img_files_list, cap_padded_list, BUFFER_SIZE, 
     dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
     return dataset
 
-def load_image_features_on_the_fly(image):
-    pretrained_model = get_inceptionv3()
-    temp_input = tf.expand_dims(load_image(image)[0], 0)
+def load_image_features_on_the_fly(filename):
+    config = load_config()
+    short_filename = filename.split('/')[-1]
+    img_features_filename = config['preprocessing']['images_features_dir'] + short_filename + '.npy'
+    if os.path.exists(img_features_filename):
+        img_tensor_val, _ = map_func(short_filename, '', full_path=False)
+    else:
+        pretrained_model = get_inceptionv3()
+        temp_input = tf.expand_dims(load_image(filename)[0], 0)    
+        print('shape of temp_input = ', temp_input.shape)
+        img_tensor_val = pretrained_model(temp_input)
+        print('shape of img_tensor_val = ', img_tensor_val.shape)
+        img_tensor_val = tf.reshape(img_tensor_val, (img_tensor_val.shape[0], -1, img_tensor_val.shape[3]))
     
-    print('shape of temp_input = ', temp_input.shape)
-    img_tensor_val = pretrained_model(temp_input)
-    print('shape of img_tensor_val = ', img_tensor_val.shape)
-    img_tensor_val = tf.reshape(img_tensor_val, (img_tensor_val.shape[0], -1, img_tensor_val.shape[3]))
     return img_tensor_val
