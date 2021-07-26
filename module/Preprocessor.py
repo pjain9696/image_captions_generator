@@ -9,6 +9,7 @@ class Preprocessor:
     def __init__(self, config) -> None:
         self.config = config['preprocessing']
         self.nn_params = config['nn_params']
+        self.store_dir = config['store']
         self.train_df = get_image_to_caption_map(self.config, 'train')
         self.val_df = get_image_to_caption_map(self.config, 'val')
         self.test_df = get_image_to_caption_map(self.config, 'test')
@@ -74,7 +75,7 @@ class Preprocessor:
         return train_cap_padded, val_cap_padded, tokenizer, vocab_size, max_len
     
     def get_embedding_matrix(self, tokenizer):
-        filtered_embedding_dir = './data/derived_data/filtered_embed_vocabsize{}.csv'.format(self.vocab_size)
+        filtered_embedding_dir = './data/filtered_embed_vocabsize{}.csv'.format(self.vocab_size)
 
         #get the embedding matrix
         if os.path.exists(filtered_embedding_dir):
@@ -97,7 +98,7 @@ class Preprocessor:
                     oov_words.append(word)
             
             #save the oov_words to disk to analyse them later
-            oov_words_dir = './data/derived_data/oov_words_vocabsize{}'.format(self.vocab_size)
+            oov_words_dir = './data/oov_words_vocabsize{}'.format(self.vocab_size)
             with open(oov_words_dir, 'w') as file_handler:
                 for item in oov_words:
                     file_handler.write('{}\n'.format(item))

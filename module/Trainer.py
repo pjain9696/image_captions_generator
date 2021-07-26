@@ -16,6 +16,7 @@ from extract_img_features import load_image, load_image_features_on_the_fly, map
 class Trainer:
     def __init__(self, config, vocab_size, max_len, embedding_matrix):
         self.config = config['nn_params']
+        self.store_dir = config['store']
         self.vocab_size = vocab_size
         self.max_len = max_len
         self.embedding_dim = self.config['embedding_dim']
@@ -30,8 +31,8 @@ class Trainer:
         self.checkpoint = tf.train.Checkpoint(encoder=self.encoder, decoder=self.decoder, optimizer=self.optimizer)
         self.checkpoint_manager = tf.train.CheckpointManager(
             self.checkpoint, 
-            self.config['checkpoint_dir'] + str(self.vocab_size) + '/', 
-            max_to_keep=2
+            self.store_dir + self.config['checkpoint_dir'],
+            max_to_keep=1
         )
 
     def loss_function(self, real, pred):
@@ -150,7 +151,7 @@ class Trainer:
                 'train_loss':train_loss_plot, 
                 'val_loss':val_loss_plot
             })
-            loss_dir = self.config['loss_dir'] + str(self.vocab_size) + '/loss_per_epoch.csv'
+            loss_dir = self.store_dir + self.config['loss_dir']
             if load_loss_file and os.path.exists(loss_dir):
                 saved_loss_df = pd.read_csv(loss_dir)
                 saved_epochs = set(saved_loss_df['epoch'])
@@ -244,9 +245,11 @@ class Trainer:
 
             # print(f'i = {i}, predictions shape = {predictions.shape}\n')
             # predicted_id = tf.random.categorical(predictions, 1)[0][0].numpy()
+            # print('before predicted_id =', tf.nn.top_k(predictions, 1)[1][0][0].numpy())
             predicted_id = tf.nn.top_k(predictions, 1)[1][0][0].numpy()
+            # print('predicted_id =', predicted_id)
 
-            if self.tokenizer.index_word[predicted_id] == 'endseq':
+            if predicted_id == 0 or self.tokenizer.index_word[predicted_id] == 'endseq':
                 result = ' '.join(result)
                 return result, attention_plot
             
@@ -273,9 +276,11 @@ class Trainer:
         plt.tight_layout()
         plt.show()
     
-    def compute_bleu_scores(self, config, group='val', search_method='greedy'):
+    def compute_bleu_scores(self, config, group='val', search_method='greedy', filter_files=[]):
         print(f'{str(datetime.now())} computing BLEU scores for {group} set using {search_method} search ')
         df = get_image_to_caption_map(config['preprocessing'], group)
+        if len(filter_files):
+            df = df[df['filename'].isin(filter_files)]
         df['caption'] = df['caption'].apply(lambda x: ' '.join(x.split()[1:-1])) #remove startseq & endseq from captions
         filename_to_captions_dict = df.groupby('filename')['caption'].apply(list).to_dict()
 
@@ -305,7 +310,7 @@ class Trainer:
         print(pred_df.describe())
 
         #write to disk
-        filename = config['nn_params']['pred_df_dir'] + str(self.vocab_size) + '/result_{}.csv'.format(search_method)
+        filename = config['store'] + config['nn_params']['pred_df_dir'] + 'result_{}.csv'.format(search_method)
         pred_df.to_csv(filename, index=False)
         return pred_df
 
@@ -362,17 +367,16 @@ class RNN_Decoder(tf.keras.Model):
             weights = [embedding_matrix],
             trainable = False
         )
-        self.gru = self.rnn_type()
-        # self.gru = tf.keras.layers.GRU(
-        #     self.units, 
-        #     return_sequences = True, 
-        #     return_state = True, 
-        #     recurrent_initializer = 'glorot_uniform'
-        # )
+        self.gru1 = self.rnn_type()
+        self.gru2 = self.rnn_type()
+
         self.fc1 = tf.keras.layers.Dense(self.units)
         self.fc2 = tf.keras.layers.Dense(vocab_size)
         self.attention = BahdanauAttention(self.units)
-    
+
+        self.dropout = tf.keras.layers.Dropout(0.3, noise_shape=None, seed=None)
+        self.batchNormalization = tf.keras.layers.BatchNormalization()
+
     def rnn_type(self):
         # if tf.test.is_gpu_available():
         if len(tf.config.list_physical_devices('GPU')):
@@ -380,14 +384,16 @@ class RNN_Decoder(tf.keras.Model):
                 self.units, 
                 return_sequences=True,
                 return_state=True,
-                recurrent_initializer='glorot_uniform'
+                recurrent_initializer='glorot_uniform',
+                kernel_regularizer=tf.keras.regularizers.l2(0.001)
             )
         else:
             return tf.keras.layers.GRU(
                 self.units, 
                 return_sequences = True, 
                 return_state = True, 
-                recurrent_initializer = 'glorot_uniform'
+                recurrent_initializer = 'glorot_uniform',
+                kernel_regularizer=tf.keras.regularizers.l2(0.001)
             )
 
     def call(self, x, features, hidden):
@@ -399,23 +405,24 @@ class RNN_Decoder(tf.keras.Model):
 
         x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
         #shape after concatenation -> (batch_size, 1, embedding_dim + hidden_size)
-        # print('shape of x after concat =', x.shape)
 
-        output, state = self.gru(x)
-        # print('shape of output =', output.shape)
-        # print('shape of state =', state.shape)
+        output, state = self.gru1(x)
+        #shape of output = (batch_size, 1, units), shape of state = (batch_size, units)
+
+        output, state = self.gru2(inputs=output, initial_state=state)
+        #shape of output = (batch_size, 1, units), shape of state = (batch_size, units)
 
         x = self.fc1(output)
-        #shape of x -> (batch_size, max_length, hidden_size)
-        # print('shape of x after fc1 =', x.shape)
+        #shape of x -> (batch_size, max_length, hidden_size) {max_length=1 because inputs are sent word by word}
+
+        x = self.dropout(x)
+        x = self.batchNormalization(x)
 
         x = tf.reshape(x, (-1, x.shape[2]))
         #shape of x -> (batch_size * max_length, hidden_size)
-        # print('shape of x after reshape =', x.shape)
 
         x = self.fc2(x)
         #shape of x -> (batch_size * max_length, vocab_size)
-        # print('shape of x after fc2 =', x.shape)
 
         return x, state, attention_weights
     

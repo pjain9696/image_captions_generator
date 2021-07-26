@@ -1,9 +1,14 @@
+import os
 from module.Preprocessor import Preprocessor
 from module.Trainer import Trainer
 from utils import load_config
 
 if __name__ == '__main__':
     config = load_config()
+
+    if not os.path.exists(config['store']):
+        os.mkdir(config['store'])
+        os.mkdir(config['store'] + config['nn_params']['pred_df_dir'])
 
     #preprocessing: obtain training / validation / test data
     pp = Preprocessor(config)
@@ -24,7 +29,7 @@ if __name__ == '__main__':
     trainer.initiate_training(
         train_dataset, 
         val_dataset, 
-        load_from_checkpoint=True, 
+        load_from_checkpoint=False, 
         load_loss_file=True, 
         save_loss_to_dir=True
     )
@@ -33,9 +38,6 @@ if __name__ == '__main__':
     # bleu_df = trainer.compute_bleu_scores(config, group='val', search_method='greedy')
     # bleu_df = trainer.compute_bleu_scores(config, group='val', search_method='beam')
 
-    # filename_short = '3695064885_a6922f06b2.jpg'
-    # pred_cap = trainer.predict_caption_beam_search(filename_short)
-    # print(pred_cap)
-
-    #todo:
-    # try other pretrained models instead of Inception v3
+    filename_short = './data/Flicker8k_Images/3695064885_a6922f06b2.jpg'
+    pred_cap = trainer.compute_bleu_scores(config, 'val', filter_files=[filename_short])
+    print(pred_cap)
