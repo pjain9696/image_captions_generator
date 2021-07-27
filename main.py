@@ -37,6 +37,8 @@ if __name__ == '__main__':
     # metrics
     bleu_df = trainer.compute_bleu_scores(config, group='val', search_method='greedy')
     bleu_df = trainer.compute_bleu_scores(config, group='train', search_method='greedy')
+    bleu_df = trainer.compute_bleu_scores(config, group='val', search_method='beam')
+    # bleu_df = trainer.compute_bleu_scores(config, group='train', search_method='beam')
 
     # filename_short = './data/Flicker8k_Images/3695064885_a6922f06b2.jpg'
     # pred_cap = trainer.compute_bleu_scores(config, 'val', filter_files=[filename_short])
