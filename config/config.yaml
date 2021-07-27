@@ -20,8 +20,8 @@ nn_params:
   BATCH_SIZE: 64
   BUFFER_SIZE: 1000
   EPOCHS: 2
-  units: 256
-  # vocab_size: 6000
+  units: 512
+  vocab_size: 6000
 
 #command to copy checkpoints from google colab to drive:
 # cp data/checkpoints/train/* /content/drive/MyDrive/Machine\ Learning/image_captions/data/checkpoints/train/
