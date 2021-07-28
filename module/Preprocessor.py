@@ -48,17 +48,14 @@ class Preprocessor:
         train_captions = self.train_df['caption'].tolist()
         val_captions = self.val_df['caption'].tolist()
         
-        tokenizer = tf.keras.preprocessing.text.Tokenizer(
-            num_words=None, 
-            # filters='!"#$%&()*+,-./:;=?@[\\]^_`{|}~\t\n' #do not filter '<' and '>'
-        )
+        tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=self.nn_params['vocab_size'])
         tokenizer.fit_on_texts(train_captions)
         
         train_cap_tokenized = tokenizer.texts_to_sequences(train_captions)
         val_cap_tokenized = tokenizer.texts_to_sequences(val_captions)
         
         #set the vocabulary size based on unique words present in train set
-        vocab_size = min(self.nn_params['vocab_size'], len(tokenizer.word_index)) + 1 # +1 for words with no word vector 
+        vocab_size = min(self.nn_params['vocab_size'], len(tokenizer.word_index))
         print('vocab_size = ', vocab_size)
 
         #figure out the length of captions in train set
@@ -89,7 +86,7 @@ class Preprocessor:
 
             oov_words = []
             for word, i in tokenizer.word_index.items():
-                if i > self.vocab_size:
+                if i >= self.vocab_size:
                     continue
                 embedding_vector = embeddings_index.get(word)
                 if embedding_vector is not None:
