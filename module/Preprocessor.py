@@ -5,6 +5,7 @@ tf.random.set_seed(1)
 import os, io, json
 from utils.load_data_utils import load_config, get_image_to_caption_map, load_pretrained_embeddings
 from utils.img_features_utils import get_inceptionv3, extract_and_save_img_features, load_image_features_from_disk
+
 class Preprocessor:
     def __init__(self, config) -> None:
         self.config = config['preprocessing']
@@ -20,14 +21,15 @@ class Preprocessor:
     
     def prep_data(self):
         '''
-        #1. tokenize the captions; determine vocab size / max_len;  get the embedding matrix
+        main entry point to preprocessing operion, categorized into two broad groups:
+        (1): tokenize the captions; determine vocab size / max_len;  get the embedding matrix
+        (2): get the encoded features from the images
         '''
-        train_cap_padded, val_cap_padded, tokenizer, self.vocab_size, self.max_len = self.extract_caption_features()        
-        self.embedding_matrix = self.get_embedding_matrix(tokenizer)
+        # (1)
+        train_cap_padded, val_cap_padded, self.vocab_size, self.max_len = self.extract_caption_features()        
+        # self.embedding_matrix = self.get_embedding_matrix(tokenizer)
         
-        '''
-        #2. get the encoded features from the images
-        '''
+        # (2)
         train_img_files = self.train_df['filename'].tolist()
         val_img_files = self.val_df['filename'].tolist()
         all_files = train_img_files + val_img_files
@@ -45,6 +47,10 @@ class Preprocessor:
         return train_dataset, val_dataset
 
     def extract_caption_features(self):
+        '''
+        prepares captions to be used by the algorithm to learn. Fits the tensorflow tokenizer on the training captions followed by 
+        padding them. Determines the words in the vocabulary (vocab_size) and the maximum length of any caption (max_len)
+        '''
         train_captions = self.train_df['caption'].tolist()
         val_captions = self.val_df['caption'].tolist()
         
@@ -59,7 +65,9 @@ class Preprocessor:
         print('vocab_size = ', vocab_size)
 
         #figure out the length of captions in train set
-        max_len = max([len(x) for x in train_cap_tokenized])
+        len_train = [len(x) for x in train_cap_tokenized]
+        max_len = int(np.ceil(np.mean(len_train) + 2*np.std(len_train)))
+        # max_len = max([len(x) for x in train_cap_tokenized])
         print('max_len = ', max_len)
 
         train_cap_padded = tf.keras.preprocessing.sequence.pad_sequences(train_cap_tokenized, maxlen=max_len, padding='post')
@@ -69,9 +77,12 @@ class Preprocessor:
         with io.open(self.config['tokenizer_dir'], 'w', encoding='utf-8') as f:
             f.write(json.dumps(tokenizer.to_json(), ensure_ascii=False))
         
-        return train_cap_padded, val_cap_padded, tokenizer, vocab_size, max_len
+        return train_cap_padded, val_cap_padded, vocab_size, max_len
     
     def get_embedding_matrix(self, tokenizer):
+        ''''
+        Enriches the tokenized words with the word embeddings from already pre-trained GloVe word vectors
+        '''
         filtered_embedding_dir = './data/filtered_embed_vocabsize{}.csv'.format(self.vocab_size)
 
         #get the embedding matrix
