@@ -170,7 +170,7 @@ class Trainer:
                 min_train_loss = avg_train_loss_this_epoch
             
             #check the caption on sample image
-            this_epoch_pred_cap, _ = self.beam_search_pred(sample_img_tensor_val, compute_attention_plot=False)
+            this_epoch_pred_cap, _ = self.greedy_search_pred(sample_img_tensor_val, compute_attention_plot=False)
             caption_per_epoch_rows.append([epoch, this_epoch_pred_cap])
             print(f'Epoch {epoch} Average Train Loss {avg_train_loss_this_epoch:.6f}, Average Val Loss {avg_val_loss_this_epoch:.6f}, Time taken {time.time()-start:.2f}sec\n')
 
@@ -263,7 +263,7 @@ class Trainer:
         # print('predicted_caption = {}\n'.format(pred))
         return pred
     
-    def beam_search_pred(self, img_tensor_val, compute_attention_plot=True, batch_size=1):
+    def greedy_search_pred(self, img_tensor_val, compute_attention_plot=True, batch_size=1):
         '''
         predict captions from an already trained encoder-decoder model using greedy search. 
         greedy search considers the best probable word at each step
@@ -334,7 +334,7 @@ class Trainer:
         for filename, captions_list in filename_to_captions_dict.items():
             img_tensor_val, _ = map_func(filename, '_' )
             if search_method == 'greedy':
-                predicted_caption, _ = self.beam_search_pred(img_tensor_val, compute_attention_plot=False)
+                predicted_caption, _ = self.greedy_search_pred(img_tensor_val, compute_attention_plot=False)
             elif search_method == 'beam':
                 predicted_caption = self.beam_search_pred(img_tensor_val)
             
