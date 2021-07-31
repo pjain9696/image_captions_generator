@@ -35,7 +35,12 @@ class Trainer:
             max_to_keep=1
         )
 
-    def loss_function(self, real, pred):
+    def loss_function(self, real, pred):        
+        '''
+        implements the SparseCategoricalCrossEntropy loss
+        real: shape = (batch_size, 1) -> token values of actual word, shape = (batch_size, 1)
+        pred: shape = (batch_size, vocab_size) -> prediction scores for all words in vocabulary
+        '''
         mask = tf.math.logical_not(tf.math.equal(real, 0))
         loss_ = self.loss_object(real, pred)
 
@@ -44,40 +49,45 @@ class Trainer:
         return tf.reduce_mean(loss_)
 
     @tf.function
-    def train_step(self, img_tensor, target, apply_gradients=True):
+    def train_step(self, img_tensor, target):
+        '''
+        img_tensor: shape = (bathch_size, attention_features_shape, features_shape) -> encoded feature representation of images
+            -> for InceptionV3, attention_features_shape = 64, features_shape = 2048 
+        target: shape = (batch_size, max_len) -> actual caption tokens per batch, obtained after padding
+        '''
         total_loss = 0
         #initializing the hidden state for each batch, because the captions are not related image to image
         hidden = self.decoder.reset_state(batch_size=target.shape[0])
         #shape of hidden -> (batch_size, units)
 
         dec_input = tf.expand_dims([self.tokenizer.word_index['startseq']] * target.shape[0], 1)
-        # print('shape of dec_input =', dec_input.shape)
         #shape of dec_input -> (batch_size, 1)
 
         with tf.GradientTape() as tape:                    
             features = self.encoder(img_tensor)
-            #shape of features after coming out of encoder fc -> (batch_size, 64, embedding_dim)
+            #shape of features after coming out of encoder fc -> (batch_size, attention_features_shape, embedding_dim)
 
             for i in range(1, target.shape[1]):
                 #passing the features through decoder
                 predictions, hidden, _ = self.decoder(dec_input, features, hidden)
+                #predictions shape -> (batch_size, vocab_size)
 
-                # print('predictions shape =', predictions.shape)
-                # print('target[:,i] =', tf.print(target[:,i]))
                 total_loss += self.loss_function(target[:,i], predictions)
 
                 #using teacher forcing
                 dec_input = tf.expand_dims(target[:,i], 1)
         
         avg_loss = (total_loss / int(target.shape[1]))
-        if apply_gradients:
-            trainable_variables = self.encoder.trainable_variables + self.decoder.trainable_variables
-            gradients = tape.gradient(total_loss, trainable_variables)
-            self.optimizer.apply_gradients(zip(gradients, trainable_variables))
 
+        trainable_variables = self.encoder.trainable_variables + self.decoder.trainable_variables
+        gradients = tape.gradient(total_loss, trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, trainable_variables))
         return avg_loss
 
     def validation_step(self, img_tensor, target):
+        '''
+        similar to method train_step but without gradient taping
+        '''
         hidden = self.decoder.reset_state(batch_size=target.shape[0])
         dec_input = tf.expand_dims([self.tokenizer.word_index['startseq']] * target.shape[0], 1)        
         features = self.encoder(img_tensor)
@@ -86,6 +96,7 @@ class Trainer:
         for i in range(1, target.shape[1]):
             predictions, hidden, _ = self.decoder(dec_input, features, hidden)
             total_loss += self.loss_function(target[:,i], predictions)
+
             #using teacher forcing
             dec_input = tf.expand_dims(target[:,i], 1)
         
@@ -100,6 +111,18 @@ class Trainer:
         save_loss_to_dir=True,
         load_loss_file=True  
         ):
+        ''''
+        main entry point to the training operation
+
+        - train_dataset/val_dataset: a tensorflow dataset which looks like: (batch_size, (img_tensor, target_captions)):
+            img_tensor: shape = (bathch_size, attention_features_shape, features_shape) -> encoded feature representation of images
+            -> for InceptionV3, attention_features_shape = 64, features_shape = 2048 
+            target_captions: shape = (batch_size, max_len) -> actual caption tokens per batch, obtained after padding
+
+        - load_from_checkpoint: whether to load latest saved checkpoint in order to resume training
+        - save_loss_to_dir: whether to save losses per epoch in directory (used to plot train vs val loss)
+        - load_loss_file: if True, tries to read the already saved loss file and appends new losses per epoch to it 
+        '''
         sample_img_tensor_val = load_image_features_on_the_fly('data/110595925_f3395c8bd6.jpg')
         caption_per_epoch_rows = []
 
@@ -147,7 +170,7 @@ class Trainer:
                 min_train_loss = avg_train_loss_this_epoch
             
             #check the caption on sample image
-            this_epoch_pred_cap, _ = self.evaluate(sample_img_tensor_val, compute_attention_plot=False)
+            this_epoch_pred_cap, _ = self.beam_search_pred(sample_img_tensor_val, compute_attention_plot=False)
             caption_per_epoch_rows.append([epoch, this_epoch_pred_cap])
             print(f'Epoch {epoch} Average Train Loss {avg_train_loss_this_epoch:.6f}, Average Val Loss {avg_val_loss_this_epoch:.6f}, Time taken {time.time()-start:.2f}sec\n')
 
@@ -181,14 +204,17 @@ class Trainer:
         return
 
     def beam_search_pred(self, img_tensor_val, beam_index=3):
+        '''
+        predict captions from an already trained encoder-decoder model using beam search
+        - beam_index: number of candidates to consider at every step
+        '''
         hidden = self.decoder.reset_state(batch_size=1)
         features = self.encoder(img_tensor_val)
         dec_input = tf.expand_dims([self.tokenizer.word_index['startseq']], 0)
     
         max_len = self.max_len
         seq = [self.tokenizer.word_index['startseq']]
-        #in_text -> [sequence_till_now, prob, hidden, dec_input] 
-            #dec_input -> last word token
+        #in_text -> [[sequence_till_now, prob, hidden, dec_input]]
         in_text = [
             [seq, 0.0, hidden, dec_input]
         ]
@@ -196,10 +222,8 @@ class Trainer:
         finished_hypothesis = []
 
         while len(in_text) > 0:
-            # print('len of in_text =', len(in_text))
             tempList = []
             for seq in in_text:
-                # print('seq = ', seq[0])
                 this_hidden = seq[2]
                 this_dec_input = seq[3]
                 predictions, hidden, attention_weights = self.decoder(this_dec_input, features, this_hidden)
@@ -239,10 +263,13 @@ class Trainer:
         # print('predicted_caption = {}\n'.format(pred))
         return pred
     
-    def evaluate(self, img_tensor_val, compute_attention_plot=True, batch_size=1):
+    def beam_search_pred(self, img_tensor_val, compute_attention_plot=True, batch_size=1):
+        '''
+        predict captions from an already trained encoder-decoder model using greedy search. 
+        greedy search considers the best probable word at each step
+        '''
         attention_plot = np.zeros((self.max_len, 64))
-        # if img_tensor_val is None:
-        #     img_tensor_val = load_image_features_on_the_fly(image)        
+
         hidden = self.decoder.reset_state(batch_size=batch_size)        
         features = self.encoder(img_tensor_val)
         dec_input = tf.expand_dims([self.tokenizer.word_index['startseq']] * batch_size, 0)
@@ -253,11 +280,7 @@ class Trainer:
             if compute_attention_plot:
                 attention_plot[i] = tf.reshape(attention_weights, (-1,)).numpy()
 
-            # print(f'i = {i}, predictions shape = {predictions.shape}\n')
-            # predicted_id = tf.random.categorical(predictions, 1)[0][0].numpy()
-            # print('before predicted_id =', tf.nn.top_k(predictions, 1)[1][0][0].numpy())
             predicted_id = tf.nn.top_k(predictions, 1)[1][0][0].numpy()
-            # print('predicted_id =', predicted_id)
 
             if predicted_id == 0 or self.tokenizer.index_word[predicted_id] == 'endseq':
                 result = ' '.join(result)
@@ -271,6 +294,9 @@ class Trainer:
         return result, attention_plot
     
     def plot_attention(self, image, result, attention_plot):
+        '''
+        plot_attention <add documentation>
+        '''
         temp_image = np.array(Image.open(image))
         
         fig = plt.figure(figsize=(10,10))
@@ -287,10 +313,20 @@ class Trainer:
         plt.show()
     
     def compute_bleu_scores(self, config, group='val', search_method='greedy', filter_files=[]):
+        '''
+        generic function to compute BLEU scores, works with both prediction algorthims: greedy search and beam search
+        computes BLEU scores for all images in train or val set, unless provided with list of files
+
+        - config: config file 
+        - group: 'val' or 'train' -> computes BLEU scores for all images in these sets
+        - search_method: 'greedy' or 'beam'
+        - filter_files: supply list of filenames in case you want to limit computation to a subset of train or val set
+        '''
         print(f'{str(datetime.now())} computing BLEU scores for {group} set using {search_method} search ')
         df = get_image_to_caption_map(config['preprocessing'], group)
         if len(filter_files):
             df = df[df['filename'].isin(filter_files)]
+
         df['caption'] = df['caption'].apply(lambda x: ' '.join(x.split()[1:-1])) #remove startseq & endseq from captions
         filename_to_captions_dict = df.groupby('filename')['caption'].apply(list).to_dict()
 
@@ -298,10 +334,9 @@ class Trainer:
         for filename, captions_list in filename_to_captions_dict.items():
             img_tensor_val, _ = map_func(filename, '_' )
             if search_method == 'greedy':
-                predicted_caption, _ = self.evaluate(img_tensor_val, compute_attention_plot=False)
+                predicted_caption, _ = self.beam_search_pred(img_tensor_val, compute_attention_plot=False)
             elif search_method == 'beam':
                 predicted_caption = self.beam_search_pred(img_tensor_val)
-            # print('predicted_caption = {}\n real_captions = {}'.format(predicted_caption, captions_list))
             
             #compute BLEU scores
             captions_list_words = [str.lower(x[:-2]).split() for x in captions_list]
@@ -325,17 +360,25 @@ class Trainer:
         return pred_df
 
 class CNN_Encoder(tf.keras.Model):
+    ''''
+    Encoder class, passes the img_tensors through a fully connected layer whose number of units is equal to the 
+    embedding dimensions
+    '''
     def __init__(self, embedding_dim):
         super(CNN_Encoder, self).__init__()
-        #shape after fc -> (batch_size, 64, embedding_dim)
         self.fc = tf.keras.layers.Dense(embedding_dim)
 
     def call(self, x):
+        #shape of x -> (bathch_size, attention_features_shape, features_shape) {(batch_size, 64, 2048) for inceptionV3}
         x = self.fc(x)
+        #shape of x after fc -> (batch_size, attention_features_shape, embedding_dim)
         x = tf.nn.relu(x)
         return x
         
 class BahdanauAttention(tf.keras.Model):
+    '''
+    add some literature about Bahdanau Attention
+    '''
     def __init__(self, units):
         super(BahdanauAttention, self).__init__()
         self.W1 = tf.keras.layers.Dense(units)
@@ -343,7 +386,7 @@ class BahdanauAttention(tf.keras.Model):
         self.V = tf.keras.layers.Dense(1)
     
     def call(self, features, hidden):
-        #features (CNN_Encoder output) shape -> (batch_size, 64, embedding_dim)
+        #features shape -> (batch_size, attention_features_shape, embedding_dim) -> this is the CNN_Encoder output
         #hidden shape -> (batch_size, hidden_size)
 
         hidden_with_time_axis = tf.expand_dims(hidden, 1)
@@ -354,20 +397,26 @@ class BahdanauAttention(tf.keras.Model):
         #why addition ? 
 
         score = self.V(attention_hidden_layer)
-        #score shape -> (batch_size, 64, 1) :: this gives us an unnormalized score for each image feature
+        #score shape -> (batch_size, attention_features_shape, 1) -> this gives us an unnormalized score for each image feature
 
         attention_weights = tf.nn.softmax(score, axis=1)
-        #attention_weights shape -> (batch_size, 64, 1)
+        #attention_weights shape -> (batch_size, attention_features_shape, 1)
 
         context_vector = attention_weights * features
-        # print('shape of context_vector = ', context_vector.shape)
+        #context_vecotr shape -> (batch_size, attention_features_shape, embedding_dim )
+        
         context_vector = tf.reduce_sum(context_vector, axis=1)
-        # print('shape of context_vector after sum = ', context_vector.shape)
-        #context_vector shape after sum -> (batch_size, hidden_size) or (batch_size, embedding_dim) ?
-
+        #context_vector shape after sum -> (batch_size, embedding_dim)
+        ####------------------------------------------------------------------
+        #tensorflow code says (batch_size, hidden_size) but I don't think that is correct
+        ####------------------------------------------------------------------
+        
         return context_vector, attention_weights
     
 class RNN_Decoder(tf.keras.Model):
+    '''
+    Decoder model that takes the encoded images as inputs, and runs them through a RNN to learn the sequence of captions
+    '''
     def __init__(self, embedding_dim, units, vocab_size, embedding_matrix):
         super(RNN_Decoder, self).__init__()
         self.units = units
@@ -407,15 +456,19 @@ class RNN_Decoder(tf.keras.Model):
             )
 
     def call(self, x, features, hidden):
+        '''
+        - 'features' are the encoded images features
+        - 'hidden' is the hidden state of the RNN that is passed to predict next word in the sequence, initally initialized as zeros
+        '''
         #get attention output
-        # context_vector, attention_weights = self.attention(features, hidden)
-        # print('shape of context_vector =', context_vector.shape)
+        context_vector, attention_weights = self.attention(features, hidden)
+        #context_vector shape after sum -> (batch_size, embedding_dim)
+        #attention_weights shape -> (batch_size, attention_features_shape, 1)
 
-        # x = self.embedding(x)
-        print('shape of x =', x.shape)
+        x = self.embedding(x)
         #shape after embedding -> (batch_size, 1, embedding_dim)
 
-        # x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
+        x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
         #shape after concatenation -> (batch_size, 1, embedding_dim + hidden_size)
 
         output, state = self.gru1(x)
@@ -436,7 +489,7 @@ class RNN_Decoder(tf.keras.Model):
         x = self.fc2(x)
         #shape of x -> (batch_size * max_length, vocab_size)
 
-        return x, state#, attention_weights
+        return x, state, attention_weights
     
     def build_graph(self):
         x = tf.keras.layers.Input(shape=(64,1))

@@ -26,8 +26,8 @@ class Preprocessor:
         (2): get the encoded features from the images
         '''
         # (1)
-        train_cap_padded, val_cap_padded, self.vocab_size, self.max_len = self.extract_caption_features()        
-        # self.embedding_matrix = self.get_embedding_matrix(tokenizer)
+        train_cap_padded, val_cap_padded, tokenizer, self.vocab_size, self.max_len = self.extract_caption_features()        
+        self.embedding_matrix = self.get_embedding_matrix(tokenizer)
         
         # (2)
         train_img_files = self.train_df['filename'].tolist()
@@ -77,7 +77,7 @@ class Preprocessor:
         with io.open(self.config['tokenizer_dir'], 'w', encoding='utf-8') as f:
             f.write(json.dumps(tokenizer.to_json(), ensure_ascii=False))
         
-        return train_cap_padded, val_cap_padded, vocab_size, max_len
+        return train_cap_padded, val_cap_padded, tokenizer, vocab_size, max_len
     
     def get_embedding_matrix(self, tokenizer):
         ''''
