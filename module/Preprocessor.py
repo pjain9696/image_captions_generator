@@ -61,7 +61,7 @@ class Preprocessor:
         val_cap_tokenized = tokenizer.texts_to_sequences(val_captions)
         
         #set the vocabulary size based on unique words present in train set
-        vocab_size = min(self.nn_params['vocab_size'], len(tokenizer.word_index))
+        vocab_size = min(self.nn_params.get(['vocab_size'], np.inf), len(tokenizer.word_index))
         print('vocab_size = ', vocab_size)
 
         #figure out the length of captions in train set
