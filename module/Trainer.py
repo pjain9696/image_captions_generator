@@ -10,8 +10,8 @@ from nltk.translate.bleu_score import sentence_bleu
 import warnings
 warnings.filterwarnings('ignore')
 
-from utils import get_tokenizer_from_dir, get_image_to_caption_map
-from extract_img_features import load_image, load_image_features_on_the_fly, map_func
+from utils.load_data_utils import get_tokenizer_from_dir, get_image_to_caption_map
+from utils.img_features_utils import load_image, load_image_features_on_the_fly, map_func
 
 class Trainer:
     def __init__(self, config, vocab_size, max_len, embedding_matrix):
@@ -408,12 +408,14 @@ class RNN_Decoder(tf.keras.Model):
 
     def call(self, x, features, hidden):
         #get attention output
-        context_vector, attention_weights = self.attention(features, hidden)
+        # context_vector, attention_weights = self.attention(features, hidden)
+        # print('shape of context_vector =', context_vector.shape)
 
-        x = self.embedding(x)
+        # x = self.embedding(x)
+        print('shape of x =', x.shape)
         #shape after embedding -> (batch_size, 1, embedding_dim)
 
-        x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
+        # x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
         #shape after concatenation -> (batch_size, 1, embedding_dim + hidden_size)
 
         output, state = self.gru1(x)
@@ -434,8 +436,15 @@ class RNN_Decoder(tf.keras.Model):
         x = self.fc2(x)
         #shape of x -> (batch_size * max_length, vocab_size)
 
-        return x, state, attention_weights
+        return x, state#, attention_weights
+    
+    def build_graph(self):
+        x = tf.keras.layers.Input(shape=(64,1))
+        print('shape of x in build_graph =', x.shape)
+        features = tf.zeros((64, 64, 300))
+        hidden = tf.zeros((64,512))
+        return tf.keras.Model(inputs=[x], outputs=self.call(x, features, hidden))
+
     
     def reset_state(self, batch_size):
         return tf.zeros((batch_size, self.units))
-        

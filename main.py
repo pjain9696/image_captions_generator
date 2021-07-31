@@ -1,7 +1,7 @@
 import os
-from module.Preprocessor import Preprocessor
-from module.Trainer import Trainer
-from utils import load_config
+from module.preprocessor import Preprocessor
+from module.trainer import Trainer
+from utils.load_data_utils import load_config
 
 if __name__ == '__main__':
     config = load_config()

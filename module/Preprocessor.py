@@ -3,8 +3,8 @@ import numpy as np
 import tensorflow as tf
 tf.random.set_seed(1)
 import os, io, json
-from utils import load_config, get_image_to_caption_map, load_pretrained_embeddings
-from extract_img_features import get_inceptionv3, extract_and_save_img_features, load_image_features_from_disk
+from utils.load_data_utils import load_config, get_image_to_caption_map, load_pretrained_embeddings
+from utils.img_features_utils import get_inceptionv3, extract_and_save_img_features, load_image_features_from_disk
 class Preprocessor:
     def __init__(self, config) -> None:
         self.config = config['preprocessing']

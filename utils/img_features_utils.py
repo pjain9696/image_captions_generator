@@ -2,7 +2,7 @@ import tensorflow as tf
 tf.random.set_seed(1)
 import numpy as np
 import os
-from utils import load_config
+from utils.load_data_utils import load_config
 
 def get_inceptionv3():
     print('\nentered into the func that loads inception v3 model\n')
