@@ -1,4 +1,4 @@
-store: './data/31jul_test/'
+store: './data/27jul_colab_20e_7378v_512u'
 preprocessing:
   # experiment_size: 256
   tokenizer_dir: './data/tokenizer.json'
