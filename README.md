@@ -1,6 +1,7 @@
 # Image Captions Generator
 
-Generate captions from images
+Generate captions from images<br>
+{readme update work in progress, keep tuning in!}
 
 ## Table Of Contents
 
