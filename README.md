@@ -64,7 +64,9 @@ Specify following settings in [config.yaml](config/config.yaml). These are used 
 
 Also, I figured that only 2.2% training captions are longer than 21 words, so it does not make sense to train for full size.
 
-![caption_length_distribution](data/plots/caption_length_distribution.png)
+<p align='center' width='100%'>
+    <img src='data/plots/caption_length_distribution.png'>
+</p>
 
 * Run [img_features.py](img_features.py) to save the encoded version of images into the disk. This usually takes 30-35 mins for images in train and validation set, so better to perform this step one-off before kicking off training. Saving to disk would save us from encoding images repeatedly as we try different combinations of model settings.
 
@@ -74,7 +76,9 @@ Also, I figured that only 2.2% training captions are longer than 21 words, so it
 
 * Here are the losses per epoch for training and validation sets. While the training loss decreases as training progresses, there is a hint of overfitting as the validation loss increases after an initial dip.
 
-![loss_per_epoch](data/plots/loss_per_epoch_plot.png)
+<p align='center' width='100%'>
+    <img src='data/plots/loss_per_epoch_plot.png'>
+</p>
 
 ## 3. Results
 
