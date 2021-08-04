@@ -8,9 +8,10 @@ best: data/2aug_20e_7378v_512u_avgmaxlen
 
 1. [Background](#1-background)
 2. [How to use this repository](#2-how-to-use-this-repository)
-3. Results
-4. Inferences
-5. References
+3. [Results](#3-results)
+4. [Inferences](#4-inferences)
+5. [Examples](#5-examples)
+6. [References](#6-references)
 
 ## 1. Background
 
@@ -106,7 +107,7 @@ Below table summarizes the performance of various model settings.
 
 | Image 	|                                                                                                                                                                                                                                                                                                                                                                                Intermediate Predicted Caption at each Epoch                                                                                                                                                                                                                                                                                                                                                                                	|
 |:-----:	|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
-| ![biker](data/110595925_f3395c8bd6.jpg)     	| 1,a man on a bike on the street<br>2,a man on a bicycle<br>3,a man is riding a bicycle<br>4,a man is riding a bicycle down a street<br>5,a man on a bicycle<br>6,a man walks along a dirt road<br>7,a man is riding a bicycle down a road<br>8,a bicycle on a dirt bike<br>9,a man is driving a bicycle down a road<br>10,a man is riding a bicycle on a road<br>11,a man is riding his bike<br>12,a bicycle on a bicycle down a street<br>13,a bicycle wheel on a gravel road<br>14,a bicycle wheel bikes on a dirt road<br>15,a bicycle on a dirt road<br>16,a man is riding his bike covered road in a race<br>17,a man bicycle wheel<br>18,a bicycle wheel a bicycle moving down a curved pipe wall<br>19,a bicyclist on a curved road in the background<br>20,a man is riding a bicycle down a street 	|
+| ![biker](data/sample_images/110595925_f3395c8bd6.jpg)     	| 1,a man on a bike on the street<br>2,a man on a bicycle<br>3,a man is riding a bicycle<br>4,a man is riding a bicycle down a street<br>5,a man on a bicycle<br>6,a man walks along a dirt road<br>7,a man is riding a bicycle down a road<br>8,a bicycle on a dirt bike<br>9,a man is driving a bicycle down a road<br>10,a man is riding a bicycle on a road<br>11,a man is riding his bike<br>12,a bicycle on a bicycle down a street<br>13,a bicycle wheel on a gravel road<br>14,a bicycle wheel bikes on a dirt road<br>15,a bicycle on a dirt road<br>16,a man is riding his bike covered road in a race<br>17,a man bicycle wheel<br>18,a bicycle wheel a bicycle moving down a curved pipe wall<br>19,a bicyclist on a curved road in the background<br>20,a man is riding a bicycle down a street 	|
 |       	|                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
 
 ## 4. Inferences
@@ -123,7 +124,23 @@ Below table summarizes the performance of various model settings.
 
 * BLEU scores are better while using Beam Search as compared to Greedy Search. Increasing the beam width (currently 3) can further improve the performance marginally. However, considering more beam samples at every step would come at higher computation expense.
 
-## 5. References
+## 5. Examples
+
+* Good Predictions:
+
+| Image                     	| Predicted Captions                       	| Real Captions                                                                                                                                                                                                                                                                  	|
+|:---------------------------:	|:------------------------------------------:	|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:	|
+| ![241](data/samples_images/2475300106_b8563111ba.jpg) 	| a brown dog is running through the grass 	| a beige dog runs through the shrubbery toward the camera,<br>a blond dog runs down a path next to a rhododendron,<br>a brown dog is running through a wooded area,<br>the dog is running through the yard,<br>the yellow dog is running next to a bush on a path in the grass' 	|
+| ![432](data/samples_images/2978409165_acc4f29a40.jpg) 	| a man in a wetsuit is surfing            	| a man in a blue bodysuit surfing,<br>a man in a blue wetsuit rides a wave on a white surfboard,<br>a man in blue surfs in the ocean,<br>a surfer tries to stay moving on his white surfboard,<br>a surfer in a blue swimsuit is riding the waves                               	|
+
+* Not so good predictions:
+
+| Image                     	| Predicted Captions           	| Real Captions                                                                                                                                                                                                                                                                                                                             	|
+|:---------------------------:	|:------------------------------:	|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:	|
+| ![288](data/samples_images/2597308074_acacc12e1b.jpg) 	| a boy is running on a beach  	| a boy and a girl at the beach, throwing sand,<br>a boy flings sand at a girl,<br>a boy with an orange tool on the shore is spraying a girl standing in shallow water with mud',<br>boy flings mud at girl,<br>the young boy flings mud at the barefoot girl in the pond                                                                   	|
+| ![272](data/samples_images/2552438538_285a05b86c.jpg) 	| two children jump in the air 	| the three children are standing on and by a fence, <br>three boys are standing in a row along an upraised wall and rail, <br>each a level higher than the one before,<br>three children stand on or near a fence, <br>three little boys, one wearing a cowboy hat look over a fence,<br>three little boys standing next to and on a fence 	|
+
+## 6. References
 
 #### 1. [Show, Attend and Tell: Neural Image Caption Generation with Visual Attention](https://arxiv.org/abs/1502.03044)
 #### 2. [Tensorflow implementation of picture captioning with visual Attention](https://www.tensorflow.org/tutorials/text/image_captioning)

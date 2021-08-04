@@ -123,7 +123,7 @@ class Trainer:
         - save_loss_to_dir: whether to save losses per epoch in directory (used to plot train vs val loss)
         - load_loss_file: if True, tries to read the already saved loss file and appends new losses per epoch to it 
         '''
-        sample_img_tensor_val = load_image_features_on_the_fly('data/110595925_f3395c8bd6.jpg')
+        sample_img_tensor_val = load_image_features_on_the_fly('data/sample_images/110595925_f3395c8bd6.jpg')
         caption_per_epoch_rows = []
 
         if load_from_checkpoint and self.checkpoint_manager.latest_checkpoint:
