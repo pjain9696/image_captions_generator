@@ -2,8 +2,6 @@
 
 Generate captions from images<br>
 
-best: data/2aug_20e_7378v_512u_avgmaxlen
-
 ## Table Of Contents
 
 1. [Background](#1-background)
@@ -17,11 +15,11 @@ best: data/2aug_20e_7378v_512u_avgmaxlen
 
 ### 1.1. Why caption images
 
-Image captions serve as a link between the image and the text. It helps AI algortihms to make better sense of what's going on in the image. Can be useful for Seach Engine Optimization (SEO), indexing and archiving photos based on its contents such as actions / places / objects in it (similar to what Google Photos does today). Image captioning can also help to process videographic data by identifying what's happening frame by frame.
+Image captions serve as a link between the information stored in image and the text. It helps machine learning algortihms to make better sense of what's going on in the image. It is useful for Seach Engine Optimization (SEO), indexing and archiving photos based on its contents such as actions / places / objects in it (similar to what Google Photos does today). Image captioning can also help to process videographic data by identifying what's happening frame by frame.
 
 ### 1.2. Model architecture
 
-Here we are using an attention based encoder-decooder model to generate captions. Training images available in RBG format are passed through a pre-trained encoder model to obtain spatial information from images, which are then passed through a decoder block to generate the captions sequentially. Encoder is most oftenly a pre-trained CNN model and decoder is a RNN model. 
+Here we are using an attention based encoder-decooder model to generate captions. Training images available in RGB format are passed through a pre-trained encoder model to obtain spatial information from images, which are then passed through a decoder block to generate the captions sequentially. Encoder is most oftenly a pre-trained CNN model, here we are using InceptionV3 and decoder is a RNN model. 
 
 ### 1.3. Why use attention ?
 
@@ -42,7 +40,7 @@ In case you are not familiar with conda environments, refer to [[3]](#3-getting-
 
 * Instead of creating the train-test-val split by ourselves, we'll leverage the awesome work done by Andrej Karpathy to split the images into train-val-test in ratio  6000:1000:1000 alongwith segregating their captions. This is available as json, download from [here](https://www.kaggle.com/shtvkumar/karpathy-splits?select=dataset_flickr8k.json).
 
-* Run [img_features.py](img_features.py) to save the encoded version of images into the disk. This usually takes 30-35 mins for images in train and validation set, so better to perform this step one-off before kicking off training. Saving to disk would allow us to use these encoded images repeatedly without any time expense as we try different combinations of model settings. A folder names 'img_features' would be created inside [data/](data) folder.
+* Run [img_features.py](img_features.py) to save the encoded version of images into the disk. This usually takes 30-35 mins for images in train and validation set, so better to perform this step one-off before kicking off training. Saving to disk would allow us to use these encoded features repeatedly without any time expense as we try different combinations of model parameters. A folder named 'img_features' would be created inside [data/](data) folder.
 
 ### 2.2. Configure settings
 
@@ -53,11 +51,11 @@ Specify following settings in [config.yaml](config/config.yaml). These are used 
 * **batch_size:** An epoch is made up of one or more batches, where we use a part of the dataset to train the neural network. Training data is split into batch_size and model weights are updated once per batch<br>
 * **units:** Number of units in the decoder RNN<br>
 * **embedding_dim:** Size of the feature vectors of the word embedding being used. Glove word vectors have 300 dimensions<br>
-* **vocab_size:** Number of unique words in the training set. A feature word per word is sourced from Glove embeddings, and a zero vector is assigned to out of vocabulary words<br>
+* **vocab_size:** Number of unique words in the training set. A feature vector per word is sourced from Glove embeddings, and a zero vector is assigned to out of vocabulary words<br>
 
 ### 2.3. Training and Inference
 
-* In the preprocessing step, [tensorflow.keras.preprocessing.pad_sequences](https://www.tensorflow.org/api_docs/python/tf/keras/preprocessing/sequence/pad_sequences) is used to ensure length of all training captions are same, by setting 'maxlen' parameter. We have set maxlen to be 21 , which is equal to {average(length of training captions) + 2 standard deviation(length of training captions)}. Keeping max_len = 39 (longest caption in train) leads to spurious results where the algorithm wanders between random words in search of stopping criteria .ie. to arrive at maxlen.
+* In the preprocessing step, [tensorflow.keras.preprocessing.pad_sequences](https://www.tensorflow.org/api_docs/python/tf/keras/preprocessing/sequence/pad_sequences) is used to ensure length of all training captions are same, by setting 'maxlen' parameter. We have set maxlen to be 21, which is equal to {average(length of training captions) + 2*standard deviation(length of training captions)}. Keeping max_len = 39 (longest caption in train) leads to spurious results where the algorithm wanders between random words in search of stopping criteria .ie. to arrive at maxlen.
 
 Point to note here is that only 2.2% training captions are longer than 21 words, so it does not make sense to train for full length.
 
@@ -76,7 +74,7 @@ Point to note here is that only 2.2% training captions are longer than 21 words,
 * At the end of training, there will be two folders creared within the 'store' folder that you specified in [config.yaml](config/config.yaml)
     - checkpoints: contains a single checkpoint for the epoch with least training loss
     - derived_data: has following .csv files: 
-        - loss_per_epoch.csv: contains train_loss and validation_loss per epoch. Used to plot figure_1.
+        - loss_per_epoch.csv: contains train_loss and validation_loss per epoch. Used to plot above figure.
         - pred_cap_per_epoch.csv: contains predicted caption for a sample image after every epoch
         - result_train_greedy.csv: contains predicted captions and BLEU-1,2,3,4 scores for all samples in training data, alongwith actual captions provided in Flickr8k dataset. Uses greedy search to generate captions.
         - result_val_greedy.csv: same as above but for validation samples using greedy search
@@ -102,6 +100,7 @@ Below table summarizes the performance of various model settings.
 | 5 	|   20   	| Full (7378) 	|    21   	|    512    	| Dev set BLEU scores:<br><br>- BLEU-1: 0.4745<br>- BLEU-2: 0.2776<br>- BLEU-3: 0.1219<br>- BLEU-4: 0.0398 	| Dev set BLEU scores:<br><br>- BLEU-1: 0.4855<br>- BLEU-2: 0.2900<br>- BLEU-3: 0.1359<br>- BLEU-4: <u>0.0523</u> 	|
 | 6 	|   20   	| Full (7378) 	|    17   	|    512    	| Dev set BLEU scores:<br><br>- BLEU-1: 0.4706<br>- BLEU-2: 0.2678<br>- BLEU-3: 0.1114<br>- BLEU-4: 0.0339 	| Dev set BLEU scores:<br><br>- BLEU-1: 0.4776<br>- BLEU-2: 0.2739<br>- BLEU-3: 0.1232<br>- BLEU-4: 0.0412 	|
 
+The best performance was acheived in run #5, with a BLEU-4 score of 5.23% using beam search.
 
 * Here is how the model learnt captions for a sample image shown below:
 
@@ -112,15 +111,13 @@ Below table summarizes the performance of various model settings.
 
 ## 4. Inferences
 
-* Training on a larger corpus of images could potentially improve performance. Since I have used Google Colab for training and there is a cap on Google Drive storage limit, I have used Flickr8k dataset, but we could upgrade to Flickr30k or COCO dataset for access to more training samples.
+* Training on a larger corpus of images could potentially improve performance. Since I have used Google Colab for training and have exhasuted the storage limit on Google Drive, I have used Flickr8k dataset, but we could upgrade to Flickr30k or COCO dataset for access to more training samples.
 
 * Training for 40 epochs lead to overfitting on training data, so I had changed number of epochs to 20 from run #3. We have incorporated regularization techniques like L2 regularizer and Dropout but they do not seem to help after a certain degree.
 
 * Training for full vocab size .ie. not dropping any words in training data lead to better performance.
 
-* As mentioned above, keeping a low max_len lead to stable predictions
-
-* Increasing the number of units in RNN Decoder helps in better performance.
+* As mentioned above, keeping a low max_len lead to stable predictions.
 
 * BLEU scores are better while using Beam Search as compared to Greedy Search. Increasing the beam width (currently 3) can further improve the performance marginally. However, considering more beam samples at every step would come at higher computation expense.
 
@@ -128,17 +125,17 @@ Below table summarizes the performance of various model settings.
 
 * Good Predictions:
 
-| Image                     	| Predicted Captions                       	| Real Captions                                                                                                                                                                                                                                                                  	|
-|:---------------------------:	|:------------------------------------------:	|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:	|
-| ![241](data/samples_images/2475300106_b8563111ba.jpg) 	| a brown dog is running through the grass 	| a beige dog runs through the shrubbery toward the camera,<br>a blond dog runs down a path next to a rhododendron,<br>a brown dog is running through a wooded area,<br>the dog is running through the yard,<br>the yellow dog is running next to a bush on a path in the grass' 	|
-| ![432](data/samples_images/2978409165_acc4f29a40.jpg) 	| a man in a wetsuit is surfing            	| a man in a blue bodysuit surfing,<br>a man in a blue wetsuit rides a wave on a white surfboard,<br>a man in blue surfs in the ocean,<br>a surfer tries to stay moving on his white surfboard,<br>a surfer in a blue swimsuit is riding the waves                               	|
+| Image                     	| Predicted Caption                       	| Human Annotated Captions                                                                                                                                                                                                                                                                   	|
+|:---------------------------:	|:------------------------------------------:	|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
+| ![241](data/sample_images/2475300106_b8563111ba.jpg) 	| a brown dog is running through the grass 	| <ul><li>a beige dog runs through the shrubbery toward the camera,</li><li>a blond dog runs down a path next to a rhododendron,</li><li>a brown dog is running through a wooded area,</li><li>the dog is running through the yard,</li><li>the yellow dog is running next to a bush on a path in the grass</li></ul> 	|
+| ![432](data/sample_images/2978409165_acc4f29a40.jpg) 	| a man in a wetsuit is surfing            	| <ul><li>a man in a blue bodysuit surfing,</li><li>a man in a blue wetsuit rides a wave on a white surfboard,</li><li>a man in blue surfs in the ocean,</li><li>a surfer tries to stay moving on his white surfboard,</li><li>a surfer in a blue swimsuit is riding the waves</li></ul>                               	|
 
 * Not so good predictions:
 
-| Image                     	| Predicted Captions           	| Real Captions                                                                                                                                                                                                                                                                                                                             	|
-|:---------------------------:	|:------------------------------:	|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:	|
-| ![288](data/samples_images/2597308074_acacc12e1b.jpg) 	| a boy is running on a beach  	| a boy and a girl at the beach, throwing sand,<br>a boy flings sand at a girl,<br>a boy with an orange tool on the shore is spraying a girl standing in shallow water with mud',<br>boy flings mud at girl,<br>the young boy flings mud at the barefoot girl in the pond                                                                   	|
-| ![272](data/samples_images/2552438538_285a05b86c.jpg) 	| two children jump in the air 	| the three children are standing on and by a fence, <br>three boys are standing in a row along an upraised wall and rail, <br>each a level higher than the one before,<br>three children stand on or near a fence, <br>three little boys, one wearing a cowboy hat look over a fence,<br>three little boys standing next to and on a fence 	|
+| Image                     	| Predicted Caption           	| Human Annotated Captions                                                                                                                                                                                                                                                                                                                            	|
+|:---------------------------:	|:------------------------------:	|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
+| ![288](data/sample_images/2597308074_acacc12e1b.jpg) 	| a boy is running on a beach  	| <ul><li>a boy and a girl at the beach, throwing sand,</li><li>a boy flings sand at a girl,</li><li>a boy with an orange tool on the shore is spraying a girl standing in shallow water with mud,</li><li>boy flings mud at girl,</li><li>the young boy flings mud at the barefoot girl in the pond</li></ul>                                                                   	|
+| ![272](data/sample_images/2552438538_285a05b86c.jpg) 	| two children jump in the air 	| <ul><li>the three children are standing on and by a fence,</li><li>three boys are standing in a row along an upraised wall and rail,</li><li>each a level higher than the one before,</li><li>three children stand on or near a fence,</li><li>three little boys, one wearing a cowboy hat look over a fence,</li><li>three little boys standing next to and on a fence</li></ul> 	|
 
 ## 6. References
 
