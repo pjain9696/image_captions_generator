@@ -4,7 +4,6 @@ from utils.img_features_utils import extract_and_save_img_features
 
 def main():
     config = load_config()
-    config_preprocessing = config['preprocessing']
 
     train_df = get_image_to_caption_map(config['preprocessing'], 'train')
     val_df = get_image_to_caption_map(config['preprocessing'], 'val')
@@ -22,4 +21,7 @@ def main():
         extract_and_save_img_features(all_files, config['nn_params']['BATCH_SIZE'])   
 
 if __name__ == '__main__':
+    '''
+    extract image features from raw images using a pretrained CNN model and save to disk
+    '''
     main()

@@ -1,16 +1,22 @@
 import os
-from module.preprocessor import Preprocessor
-from module.trainer import Trainer
+from module.Preprocessor import Preprocessor
+from module.Trainer import Trainer
 from utils.load_data_utils import load_config
 
 if __name__ == '__main__':
     config = load_config()
 
+    '''
+    #1. create a directory to store model checkpoints and results
+    '''
     if not os.path.exists(config['store']):
         os.mkdir(config['store'])
         os.mkdir(config['store'] + config['nn_params']['pred_df_dir'])
 
-    #preprocessing: obtain training / validation / test data
+    '''
+    #2. preprocessing: obtain raw images and captions and convert them into tensorflow 
+    friendly format
+    '''
     pp = Preprocessor(config)
     train_dataset, val_dataset = pp.prep_data()
 
@@ -24,7 +30,9 @@ if __name__ == '__main__':
         break
     print('-'*100)
     
-    #training
+    '''
+    #3. training
+    '''
     trainer = Trainer(config, pp.vocab_size, pp.max_len, pp.embedding_matrix)
     trainer.initiate_training(
         train_dataset, 
@@ -34,12 +42,9 @@ if __name__ == '__main__':
         save_loss_to_dir=True,
     )
 
-    # metrics
+    '''
+    #4. metrics evaluation
+    '''
     bleu_df = trainer.compute_bleu_scores(config, group='val', search_method='greedy')
     bleu_df = trainer.compute_bleu_scores(config, group='train', search_method='greedy')
     bleu_df = trainer.compute_bleu_scores(config, group='val', search_method='beam')
-    # bleu_df = trainer.compute_bleu_scores(config, group='train', search_method='beam')
-
-    # filename_short = './data/Flicker8k_Images/3695064885_a6922f06b2.jpg'
-    # pred_cap = trainer.compute_bleu_scores(config, 'val', filter_files=[filename_short])
-    # print(pred_cap)

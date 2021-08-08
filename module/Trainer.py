@@ -194,13 +194,6 @@ class Trainer:
         caption_per_epoch_df = pd.DataFrame(caption_per_epoch_rows, columns=['epoch', 'pred_cap'])
         caption_per_epoch_df.to_csv(self.store_dir + self.config['pred_df_dir'] + 'pred_cap_per_epoch.csv', index=False)
 
-        #plot the losses
-        # plt.plot(loss_plot)
-        # plt.xlabel('Epochs')
-        # plt.ylabel('Loss')
-        # plt.title('Loss Plot')
-        # plt.grid()
-        # plt.show()
         return
 
     def beam_search_pred(self, img_tensor_val, beam_index=3):
@@ -253,14 +246,11 @@ class Trainer:
             in_text = sorted(in_text, reverse=True, key=lambda l: l[1])
             #take top words
             in_text = in_text[:beam_index]
-            # print('done with current iteration, len of in_text =', len(in_text))
         
-        # print('len of finished hypo =', len(finished_hypothesis))
         finished_hypothesis = sorted(finished_hypothesis, reverse=True, key=lambda l: l[1])
         pred_cap_ids = finished_hypothesis[0][0]
         pred = [self.tokenizer.index_word[x] for x in pred_cap_ids[1:]]
         pred = ' '.join(pred)
-        # print('predicted_caption = {}\n'.format(pred))
         return pred
     
     def greedy_search_pred(self, img_tensor_val, compute_attention_plot=True, batch_size=1):
@@ -295,7 +285,7 @@ class Trainer:
     
     def plot_attention(self, image, result, attention_plot):
         '''
-        plot_attention <add documentation>
+        plot_attention (to be updated)
         '''
         temp_image = np.array(Image.open(image))
         
@@ -377,7 +367,9 @@ class CNN_Encoder(tf.keras.Model):
         
 class BahdanauAttention(tf.keras.Model):
     '''
-    add some literature about Bahdanau Attention
+    Bahdanau et al. has proposed an attention mechanism that learns to align and translate jointly. 
+    It is also known as Additive attention as it performs a linear combination of encoder states 
+    and the decoder states. See readme for more details.
     '''
     def __init__(self, units):
         super(BahdanauAttention, self).__init__()
@@ -437,7 +429,6 @@ class RNN_Decoder(tf.keras.Model):
         self.batchNormalization = tf.keras.layers.BatchNormalization()
 
     def rnn_type(self):
-        # if tf.test.is_gpu_available():
         if len(tf.config.list_physical_devices('GPU')):
             return tf.compat.v1.keras.layers.CuDNNGRU(
                 self.units, 
@@ -490,14 +481,6 @@ class RNN_Decoder(tf.keras.Model):
         #shape of x -> (batch_size * max_length, vocab_size)
 
         return x, state, attention_weights
-    
-    def build_graph(self):
-        x = tf.keras.layers.Input(shape=(64,1))
-        print('shape of x in build_graph =', x.shape)
-        features = tf.zeros((64, 64, 300))
-        hidden = tf.zeros((64,512))
-        return tf.keras.Model(inputs=[x], outputs=self.call(x, features, hidden))
-
     
     def reset_state(self, batch_size):
         return tf.zeros((batch_size, self.units))

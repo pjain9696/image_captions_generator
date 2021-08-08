@@ -115,3 +115,4 @@ class Preprocessor:
             #save embedding_matrix to disk for effective use of RAM in subsequent runs 
             np.savetxt(filtered_embedding_dir, embedding_matrix, delimiter=',')
         return embedding_matrix
+        

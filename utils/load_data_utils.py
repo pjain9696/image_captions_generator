@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import tensorflow as tf
 from tqdm import tqdm
 import yaml, json
@@ -11,6 +12,9 @@ def load_config():
     return config
 
 def get_karpathy_split():
+    '''
+    load karpathy split available as a json file in directory
+    '''
     config = load_config()
     karpathy_split_dir = config['preprocessing']['karpathy_test_val_split_json']
 
@@ -36,6 +40,7 @@ def get_image_data(config, group, data_label):
 def get_image_to_caption_map(config, group):
     '''
     group = train / val / test
+    obtain a dataframe containing image file names and their human annotated captions
     '''
     karpathy_split = get_karpathy_split()
     karpathy_subset = [x for x in karpathy_split if x['split'] == group]
@@ -44,17 +49,11 @@ def get_image_to_caption_map(config, group):
     captions_list = []
     images_dir = config['images_dir']
 
-    count = 0
     for item in karpathy_subset:
-        count += 1
         filename = images_dir + item['filename']
-        # print(filename)
         captions = [x['raw'] for x in item['sentences']]
-        # print(captions)
         images_list += [filename]*len(captions)
         captions_list += captions
-        # if count>2:
-        #     break
     
     ret_df = pd.DataFrame({'filename':images_list, 'caption':captions_list})
 
@@ -67,6 +66,9 @@ def get_image_to_caption_map(config, group):
     return ret_df
 
 def get_all_captions_for_image(image_filename):
+    '''
+    provided a single filename, return all 5 human annotated captions
+    '''
     karpathy_split = get_karpathy_split()
     img_data = [item for item in karpathy_split if item['filename'] == image_filename]
     caption_list = []
@@ -75,6 +77,9 @@ def get_all_captions_for_image(image_filename):
     return caption_list
     
 def load_pretrained_embeddings(file_path):
+    '''
+    load Glove pretrained word vector embeddings from disk
+    '''
     embeddings_index = {}
     print('\nembed file path = {}\n'.format(file_path))
 
@@ -89,10 +94,32 @@ def load_pretrained_embeddings(file_path):
     return embeddings_index
 
 def get_tokenizer_from_dir(config):
+    ''''
+    load the tokenizer file saved as json in disk. Used to convert words to tokens and vice-versa.
+    '''
     #load tokenizer
     tokenizer_dir = config['preprocessing']['tokenizer_dir']
     with open(tokenizer_dir) as f:
         data = json.load(f)
         tokenizer = tf.keras.preprocessing.text.tokenizer_from_json(data)
     return tokenizer
-    
+
+def plot_losses(filename):
+    '''
+    helper function to plot train and val losses per epochs
+    '''
+    loss_df = result = pd.read_csv(filename)
+
+    plt.figure(figsize=(7,4))
+    plt.plot(range(1,len(loss_df)), loss_df['train_loss'], label='train_loss')
+    plt.plot(range(1,len(loss_df)), loss_df['val_loss'], label='val_loss')
+    plt.xticks(range(1,len(loss_df)))
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Loss Per Epoch')
+    plt.grid()
+    plt.legend()
+    plt.rcParams['figure.facecolor'] = 'white'
+    plt.savefig('./data/loss_per_epoch_plot.png')
+    plt.show()
+    return        
