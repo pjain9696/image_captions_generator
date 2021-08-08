@@ -128,7 +128,7 @@ class Trainer:
 
         if load_from_checkpoint and self.checkpoint_manager.latest_checkpoint:
             print('latest_checkpoint = ', self.checkpoint_manager.latest_checkpoint)    
-            start_epoch = int(self.checkpoint_manager.latest_checkpoint.split('-')[-1])
+            start_epoch = int(self.checkpoint_manager.latest_checkpoint.split('-')[-1]) + 1
             self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
         else:
             start_epoch = 1
@@ -302,7 +302,7 @@ class Trainer:
         plt.tight_layout()
         plt.show()
     
-    def compute_bleu_scores(self, config, group='val', search_method='greedy', filter_files=[]):
+    def compute_bleu_scores(self, config, group='val', search_method='greedy', filter_files=[], save_to_dir=True):
         '''
         generic function to compute BLEU scores, works with both prediction algorthims: greedy search and beam search
         computes BLEU scores for all images in train or val set, unless provided with list of files
@@ -345,8 +345,9 @@ class Trainer:
         print(pred_df.describe())
 
         #write to disk
-        filename = config['store'] + config['nn_params']['pred_df_dir'] + 'result_{}_{}.csv'.format(group, search_method)
-        pred_df.to_csv(filename, index=False)
+        if save_to_dir:
+            filename = config['store'] + config['nn_params']['pred_df_dir'] + 'result_{}_{}.csv'.format(group, search_method)
+            pred_df.to_csv(filename, index=False)
         return pred_df
 
 class CNN_Encoder(tf.keras.Model):
