@@ -54,20 +54,19 @@ class Preprocessor:
         train_captions = self.train_df['caption'].tolist()
         val_captions = self.val_df['caption'].tolist()
         
-        tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=self.nn_params['vocab_size'])
+        tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=self.nn_params.get('vocab_size', None))
         tokenizer.fit_on_texts(train_captions)
         
         train_cap_tokenized = tokenizer.texts_to_sequences(train_captions)
         val_cap_tokenized = tokenizer.texts_to_sequences(val_captions)
         
         #set the vocabulary size based on unique words present in train set
-        vocab_size = min(self.nn_params.get('vocab_size', np.inf), len(tokenizer.word_index))
+        vocab_size = min(self.nn_params.get('vocab_size', np.inf), len(tokenizer.word_index)) + 1 # +1 to account for oov_words 
         print('vocab_size = ', vocab_size)
 
         #figure out the length of captions in train set
         len_train = [len(x) for x in train_cap_tokenized]
         max_len = int(np.ceil(np.mean(len_train) + 2*np.std(len_train)))
-        # max_len = max([len(x) for x in train_cap_tokenized])
         print('max_len = ', max_len)
 
         train_cap_padded = tf.keras.preprocessing.sequence.pad_sequences(train_cap_tokenized, maxlen=max_len, padding='post')

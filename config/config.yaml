@@ -1,17 +1,13 @@
-store: './data/27jul_colab_20e_7378v_512u'
+store: './data/20e_fullvocab_512u/'
 preprocessing:
-  # experiment_size: 256
+  experiment_size: 256 #use a subset of samples to perform a mock  run
   tokenizer_dir: './data/tokenizer.json'
   images_dir: './data/Flicker8k_Images/'
 
   images_features_dir: './data/img_features/'
   karpathy_test_val_split_json: './data/annotations/dataset_flickr8k_karpathy.json'
   raw_pretrained_embedding_dir: 'data/annotations/glove.840B.300d.txt'
-  
-  #for training in google colab (access GPU) ->
-  # images_features_dir: '/content/drive/MyDrive/Machine Learning/image_captions/data/img_features/'
-  # karpathy_test_val_split_json: '/content/drive/MyDrive/Machine Learning/image_captions/data/annotations/dataset_flickr8k_karpathy.json'
-  # raw_pretrained_embedding_dir: '/content/drive/MyDrive/Machine Learning/image_captions/data/annotations/glove.840B.300d.txt'  
+
 nn_params:
   checkpoint_dir: 'checkpoints/'
   pred_df_dir: 'derived_data/'
@@ -19,9 +15,6 @@ nn_params:
   embedding_dim: 300
   BATCH_SIZE: 64
   BUFFER_SIZE: 1000
-  EPOCHS: 2
+  EPOCHS: 20
   units: 512
-  vocab_size: 6000
-
-#command to copy checkpoints from google colab to drive:
-# cp data/checkpoints/train/* /content/drive/MyDrive/Machine\ Learning/image_captions/data/checkpoints/train/
+  # vocab_size: 6000 #specify this param if you want to restrict training vocabulary to these many words
