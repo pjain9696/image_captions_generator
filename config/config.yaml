@@ -1,6 +1,6 @@
-store: './data/20e_fullvocab_512u/'
+store: './data/best_2aug_20e_7378v_512u_avgmaxlen/'
 preprocessing:
-  experiment_size: 256 #use a subset of samples to perform a mock  run
+  # experiment_size: 256 #use a subset of samples to perform a mock  run
   tokenizer_dir: './data/tokenizer.json'
   images_dir: './data/Flicker8k_Images/'
 
