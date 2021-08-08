@@ -36,9 +36,11 @@ In case you are not familiar with conda environments, refer to [[3]](#3-getting-
 * Install dependencies using [requirements.txt](requirements.txt)<br>
 `pip3 install -r requirements.txt`
 
-* Flickr8k images have been used in this project. There are multiple sources available online to download this dataset, here is one of them - [download flickr8k](https://www.kaggle.com/adityajn105/flickr8k).
+* Flickr8k images have been used in this project. There are multiple sources available online to download this dataset, here is one of them - [download flickr8k](https://www.kaggle.com/adityajn105/flickr8k). Save these images in [data/Flicker8k_Images](data/Flicker8k_Images) directory. One image has been already saved for reference.
 
-* Instead of creating the train-test-val split by ourselves, we'll leverage the awesome work done by Andrej Karpathy to split the images into train-val-test in ratio  6000:1000:1000 alongwith segregating their captions. This is available as json, download from [here](https://www.kaggle.com/shtvkumar/karpathy-splits?select=dataset_flickr8k.json).
+* Instead of creating the train-test-val split by ourselves, we'll leverage the awesome work done by Andrej Karpathy to split the images into train-val-test in ratio  6000:1000:1000 alongwith segregating their captions. This is available as json, download from [here](https://www.kaggle.com/shtvkumar/karpathy-splits?select=dataset_flickr8k.json). Save this json file in [data/annotations](data/annotations)
+
+* Download pretrained GLoVe embeddings (glove.840B.300d) from [here](https://nlp.stanford.edu/projects/glove/) or [here](https://www.kaggle.com/takuok/glove840b300dtxt) and save to [data/annotations](data/annotations) directory
 
 * Run [img_features.py](img_features.py) to save the encoded version of images into the disk. This usually takes 30-35 mins for images in train and validation set, so better to perform this step one-off before kicking off training. Saving to disk would allow us to use these encoded features repeatedly without any time expense as we try different combinations of model parameters. A folder named 'img_features' would be created inside [data/](data) folder.
 
