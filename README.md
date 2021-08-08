@@ -23,7 +23,7 @@ Here we are using an attention based encoder-decooder model to generate captions
 
 ### 1.3. Why use attention ?
 
-Attention in literal English means directing focus at something or taking greater notice. In Deep Learning, attention mechanism lives off the same concept where a model pays higher focus on certain factors while processing the data. Attention in an encoder-decoder model is in charge of managing and quantifying the dependence that the decoder has on the encoder.
+Attention in literal English means directing focus at something or taking greater notice. In Deep Learning, attention mechanism lives off the same concept where a model pays higher focus on certain factors while processing the data. Attention in an encoder-decoder model is in charge of managing and quantifying the dependence that the decoder has on the encoder. See [[6]](#6-bahdanau-attention) for more details on Bahdanau Attention.
 
 ## 2. How to use this repository
 
@@ -144,5 +144,6 @@ The best performance was acheived in run #5, with a BLEU-4 score of 5.23% using 
 #### 3. [Getting started with Python environments using Conda](https://towardsdatascience.com/getting-started-with-python-environments-using-conda-32e9f2779307)
 #### 4. [Create virtual environments for python with conda](https://uoa-eresearch.github.io/eresearch-cookbook/recipe/2014/11/20/conda/)
 #### 5. [Andrew NG's explanation of Beam Search](https://www.youtube.com/watch?v=RLWuzLLSIgw)
+#### 6. [Bahdanau Attention](https://towardsdatascience.com/sequence-2-sequence-model-with-attention-mechanism-9e9ca2a613a)
 
 
